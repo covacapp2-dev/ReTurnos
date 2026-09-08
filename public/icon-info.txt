@@ -1,0 +1,6 @@
+These are placeholder files for PWA icons.
+Replace them with actual PNG icons:
+- icon-192.png (192x192 pixels)
+- icon-512.png (512x512 pixels)
+
+Recommended: Generate icons at https://favicon.io or https://icon.horse
