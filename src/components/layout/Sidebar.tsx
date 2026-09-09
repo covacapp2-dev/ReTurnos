@@ -31,7 +31,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio' },
   { to: '/appointments/new', icon: CalendarPlus, label: 'Cargar reserva' },
   { to: '/agenda', icon: Calendar, label: 'Agenda' },
   { to: '/appointments', icon: CalendarCheck, label: 'Reservas' },
