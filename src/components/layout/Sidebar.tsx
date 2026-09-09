@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
+import { signOut } from '../../services/auth';
 
 interface NavItem {
   to: string;
@@ -55,6 +56,12 @@ export default function Sidebar() {
 
   function handleNavClick() {
     if (mobileMenuOpen) setMobileMenuOpen(false);
+  }
+
+  async function handleLogout() {
+    await signOut();
+    useAuthStore.getState().logout();
+    window.location.href = '/login';
   }
 
   const sidebarContent = (
@@ -113,7 +120,7 @@ export default function Sidebar() {
 
       <div className="border-t border-[#333] p-2 shrink-0">
         <button
-          onClick={handleNavClick}
+          onClick={handleLogout}
           className={cn(
             'flex items-center gap-3 rounded-lg text-sm font-medium w-full transition-colors duration-150',
             'text-[#9CA3AF] hover:bg-[#1A1A1A] hover:text-white',

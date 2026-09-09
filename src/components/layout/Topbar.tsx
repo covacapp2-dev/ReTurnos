@@ -3,6 +3,7 @@ import { Menu, Bell, Search, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
+import { signOut } from '../../services/auth';
 import Avatar from '../ui/Avatar';
 
 export default function Topbar() {
@@ -87,7 +88,7 @@ export default function Topbar() {
                 <p className="text-xs text-[#9CA3AF] truncate mt-0.5">{user?.email}</p>
               </div>
               <a
-                href="/mi-cuenta"
+                href="/account"
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#9CA3AF] hover:bg-[#222] hover:text-white transition-colors"
                 onClick={() => setDropdownOpen(false)}
               >
@@ -96,7 +97,12 @@ export default function Topbar() {
               </a>
               <hr className="border-[#333] my-1" />
               <button
-                onClick={() => setDropdownOpen(false)}
+                onClick={async () => {
+                  setDropdownOpen(false);
+                  await signOut();
+                  useAuthStore.getState().logout();
+                  window.location.href = '/login';
+                }}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#9CA3AF] hover:bg-[#222] hover:text-white transition-colors w-full"
               >
                 <LogOut size={16} />
