@@ -6,9 +6,7 @@ export default function PublicLayout() {
       <header className="border-b border-[#333] bg-[#0A0A0A]">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#DC2626] flex items-center justify-center">
-              <span className="text-white font-bold text-xs">RT</span>
-            </div>
+            <img src="/logo.png" alt="ReTurnos" className="w-7 h-7 rounded-lg object-cover" />
             <span className="text-white font-semibold text-sm">ReTurnos</span>
           </div>
         </div>

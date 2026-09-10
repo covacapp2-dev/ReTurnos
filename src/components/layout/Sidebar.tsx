@@ -73,9 +73,7 @@ export default function Sidebar() {
         )}
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-[#DC2626] flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-sm">RT</span>
-          </div>
+          <img src="/logo.png" alt="ReTurnos" className="w-8 h-8 rounded-lg object-cover shrink-0" />
           {!isCollapsed && (
             <span className="text-white font-bold text-lg tracking-tight truncate">
               ReTurnos
