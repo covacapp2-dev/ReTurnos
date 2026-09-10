@@ -78,117 +78,99 @@ export default function RegisterPage() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#080808] px-4">
-        <div className="w-full max-w-md text-center">
-          <div className="bg-[#1A1A1A] border border-[#333] rounded-xl p-8">
-            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/15 mx-auto mb-5">
-              <CheckCircle size={32} className="text-emerald-400" />
-            </div>
-            <h2 className="text-xl font-semibold text-white mb-2">
-              Revisá tu email
-            </h2>
-            <p className="text-[#9CA3AF] mb-6">
-              Te enviamos un enlace de confirmación a <span className="text-white font-medium">{email}</span>. Hacé click en el enlace para activar tu cuenta.
-            </p>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-[#DC2626] hover:text-[#EF4444] transition-colors"
-            >
-              Volver al login
-            </Link>
-          </div>
+      <div className="text-center py-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/15 mx-auto mb-3">
+          <CheckCircle size={24} className="text-emerald-400" />
         </div>
+        <h2 className="text-lg font-semibold text-white mb-1">Revisá tu email</h2>
+        <p className="text-sm text-[#9CA3AF] mb-4">
+          Te enviamos un enlace a <span className="text-white font-medium">{email}</span>
+        </p>
+        <Link
+          to="/login"
+          className="text-sm text-[#DC2626] hover:text-[#EF4444] font-medium transition-colors"
+        >
+          Volver al login
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#080808] px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            Re<span className="text-[#DC2626]">Turnos</span>
-          </h1>
-          <p className="text-[#9CA3AF] mt-2">Creá tu cuenta gratuita</p>
-        </div>
+    <div>
+      <h2 className="text-lg font-semibold text-white mb-4">Crear cuenta</h2>
 
-        <div className="bg-[#1A1A1A] border border-[#333] rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-white mb-6">Registrarse</h2>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Input
+          label="Nombre completo"
+          icon={User}
+          placeholder="Tu nombre"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          error={errors.fullName}
+          autoComplete="name"
+        />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Nombre completo"
-              icon={User}
-              placeholder="Tu nombre"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              error={errors.fullName}
-              autoComplete="name"
-            />
+        <Input
+          label="Email"
+          type="email"
+          icon={Mail}
+          placeholder="tu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={errors.email}
+          autoComplete="email"
+        />
 
-            <Input
-              label="Email"
-              type="email"
-              icon={Mail}
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-              autoComplete="email"
-            />
-
-            <div className="relative">
-              <Input
-                label="Contraseña"
-                type={showPassword ? 'text' : 'password'}
-                icon={Lock}
-                placeholder="Mínimo 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={errors.password}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-[#9CA3AF] hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <Input
-              label="Confirmar contraseña"
-              type="password"
-              icon={Lock}
-              placeholder="Repetí tu contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={errors.confirmPassword}
-              autoComplete="new-password"
-            />
-
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
-              Crear cuenta
-            </Button>
-          </form>
-        </div>
-
-        <p className="text-center mt-6 text-sm text-[#9CA3AF]">
-          ¿Ya tenés cuenta?{' '}
-          <Link
-            to="/login"
-            className="text-[#DC2626] hover:text-[#EF4444] font-medium transition-colors"
+        <div className="relative">
+          <Input
+            label="Contraseña"
+            type={showPassword ? 'text' : 'password'}
+            icon={Lock}
+            placeholder="Mínimo 6 caracteres"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-[38px] text-[#9CA3AF] hover:text-white transition-colors"
           >
-            Iniciá sesión
-          </Link>
-        </p>
-      </div>
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        <Input
+          label="Confirmar contraseña"
+          type="password"
+          icon={Lock}
+          placeholder="Repetí tu contraseña"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          error={errors.confirmPassword}
+          autoComplete="new-password"
+        />
+
+        <Button
+          type="submit"
+          loading={loading}
+          className="w-full"
+        >
+          Crear cuenta
+        </Button>
+      </form>
+
+      <p className="text-center mt-4 text-sm text-[#9CA3AF]">
+        ¿Ya tenés cuenta?{' '}
+        <Link
+          to="/login"
+          className="text-[#DC2626] hover:text-[#EF4444] font-medium transition-colors"
+        >
+          Iniciá sesión
+        </Link>
+      </p>
     </div>
   );
 }

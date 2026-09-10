@@ -13,7 +13,6 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -51,96 +50,70 @@ export default function LoginPage() {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#080808]">
-        <div className="w-8 h-8 border-2 border-[#DC2626] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#080808] px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            Re<span className="text-[#DC2626]">Turnos</span>
-          </h1>
-          <p className="text-[#9CA3AF] mt-2">Gestioná tus reservas fácilmente</p>
-        </div>
+    <div>
+      <h2 className="text-lg font-semibold text-white mb-4">Iniciar sesión</h2>
 
-        <div className="bg-[#1A1A1A] border border-[#333] rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-white mb-6">Iniciar sesión</h2>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Input
+          label="Email"
+          type="email"
+          icon={Mail}
+          placeholder="tu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+        />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              icon={Mail}
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-
-            <div className="relative">
-              <Input
-                label="Contraseña"
-                type={showPassword ? 'text' : 'password'}
-                icon={Lock}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-[#9CA3AF] hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#333] bg-[#1A1A1A] text-[#DC2626] focus:ring-[#DC2626]/50 focus:ring-offset-0"
-                />
-                <span className="text-sm text-[#9CA3AF]">Recordarme</span>
-              </label>
-
-              <Link
-                to="/forgot-password"
-                className="text-sm text-[#DC2626] hover:text-[#EF4444] transition-colors"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
-
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
-              Iniciar sesión
-            </Button>
-          </form>
-        </div>
-
-        <p className="text-center mt-6 text-sm text-[#9CA3AF]">
-          ¿No tenés cuenta?{' '}
-          <Link
-            to="/register"
-            className="text-[#DC2626] hover:text-[#EF4444] font-medium transition-colors"
+        <div className="relative">
+          <Input
+            label="Contraseña"
+            type={showPassword ? 'text' : 'password'}
+            icon={Lock}
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-[38px] text-[#9CA3AF] hover:text-white transition-colors"
           >
-            Registrate
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-end">
+          <Link
+            to="/forgot-password"
+            className="text-xs text-[#DC2626] hover:text-[#EF4444] transition-colors"
+          >
+            ¿Olvidaste tu contraseña?
           </Link>
-        </p>
-      </div>
+        </div>
+
+        <Button
+          type="submit"
+          loading={loading}
+          className="w-full"
+        >
+          Iniciar sesión
+        </Button>
+      </form>
+
+      <p className="text-center mt-4 text-sm text-[#9CA3AF]">
+        ¿No tenés cuenta?{' '}
+        <Link
+          to="/register"
+          className="text-[#DC2626] hover:text-[#EF4444] font-medium transition-colors"
+        >
+          Registrate
+        </Link>
+      </p>
     </div>
   );
 }
