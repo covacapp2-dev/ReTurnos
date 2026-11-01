@@ -111,7 +111,7 @@ export default function SettingsPage() {
   });
 
   const handleCopyLink = async () => {
-    const url = `https://returnos.vercel.app/book/${business?.slug}`;
+    const url = `https://re-turnos.vercel.app/book/${business?.slug}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -301,7 +301,7 @@ export default function SettingsPage() {
   );
 
   const renderLinkTab = () => {
-    const publicUrl = `https://returnos.vercel.app/book/${business?.slug}`;
+    const publicUrl = `https://re-turnos.vercel.app/book/${business?.slug}`;
     return (
       <div className="space-y-4">
         <Card>
