@@ -92,45 +92,56 @@ export default function AppointmentDetailPage() {
   });
 
   const confirmMut = useMutation({
-    mutationFn: () => updateAppointment(id!, { status: 'confirmed' }),
+    mutationFn: async () => {
+      const res = await updateAppointment(id!, { status: 'confirmed' });
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointment', id] });
       toast.success('Turno confirmado');
     },
-    onError: () => toast.error('Error al confirmar turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al confirmar turno'),
   });
 
   const completeMut = useMutation({
-    mutationFn: () => completeAppointment(id!),
+    mutationFn: async () => {
+      const res = await completeAppointment(id!);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointment', id] });
       toast.success('Turno completado');
     },
-    onError: () => toast.error('Error al completar turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al completar turno'),
   });
 
   const cancelMut = useMutation({
-    mutationFn: () => cancelAppointment(id!),
+    mutationFn: async () => {
+      const res = await cancelAppointment(id!);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointment', id] });
       toast.success('Turno cancelado');
       setCancelModal(false);
     },
-    onError: () => toast.error('Error al cancelar turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al cancelar turno'),
   });
 
   const updateNotesMut = useMutation({
-    mutationFn: () =>
-      updateAppointment(id!, {
+    mutationFn: async () => {
+      const res = await updateAppointment(id!, {
         notes: editForm.notes || null,
         internal_notes: editForm.internalNotes || null,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointment', id] });
       toast.success('Notas actualizadas');
       setEditModal(false);
     },
-    onError: () => toast.error('Error al actualizar notas'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar notas'),
   });
 
   if (isLoading) return <LoadingSpinner />;

@@ -139,13 +139,14 @@ export default function OnboardingPage() {
           bio: p.specialty || null,
           is_active: true,
         });
+        if (profRes.error) throw new Error(profRes.error.message);
         if (profRes.data) {
           createdProfessionalIds.push(profRes.data.id);
         }
       }
 
       for (const s of services.filter((s) => s.name.trim())) {
-        await createService({
+        const svcRes = await createService({
           business_id: bizId,
           branch_id: null,
           name: s.name,
@@ -159,10 +160,11 @@ export default function OnboardingPage() {
           max_advance_days: 30,
           min_advance_minutes: 30,
         });
+        if (svcRes.error) throw new Error(svcRes.error.message);
       }
 
       for (const r of resources.filter((r) => r.name.trim())) {
-        await createResource({
+        const resRes = await createResource({
           business_id: bizId,
           branch_id: null,
           name: r.name,
@@ -170,6 +172,7 @@ export default function OnboardingPage() {
           description: null,
           is_active: true,
         });
+        if (resRes.error) throw new Error(resRes.error.message);
       }
 
       for (const profId of createdProfessionalIds) {
@@ -182,7 +185,8 @@ export default function OnboardingPage() {
           }))
           .filter((s) => s.is_active);
 
-        await upsertAvailability(profId, slots);
+        const availRes = await upsertAvailability(profId, slots);
+        if (availRes.error) throw new Error(availRes.error.message);
       }
 
       return bizRes.data;

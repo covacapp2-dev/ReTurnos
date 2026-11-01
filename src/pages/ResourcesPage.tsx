@@ -55,47 +55,56 @@ export default function ResourcesPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (data: FormData) =>
-      createResource({
+    mutationFn: async (data: FormData) => {
+      const res = await createResource({
         business_id: business!.id,
         branch_id: null,
         name: data.name,
         description: data.description || null,
         type: data.resource_type as Resource['type'],
         is_active: data.is_active,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources', business?.id] });
       toast.success('Recurso creado');
       closeModal();
     },
-    onError: () => toast.error('Error al crear recurso'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear recurso'),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      updateResource(id, {
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
+      const res = await updateResource(id, {
         name: data.name,
         description: data.description || null,
         type: data.resource_type as Resource['type'],
         is_active: data.is_active,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources', business?.id] });
       toast.success('Recurso actualizado');
       closeModal();
     },
-    onError: () => toast.error('Error al actualizar recurso'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar recurso'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteResource(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteResource(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources', business?.id] });
       toast.success('Recurso eliminado');
       setDeleteModal(null);
     },
-    onError: () => toast.error('Error al eliminar recurso'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al eliminar recurso'),
   });
 
   const closeModal = useCallback(() => {

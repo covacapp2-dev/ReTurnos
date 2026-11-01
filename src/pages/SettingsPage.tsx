@@ -97,8 +97,8 @@ export default function SettingsPage() {
   const [reminder, setReminder] = useState(true);
 
   const saveGeneralMutation = useMutation({
-    mutationFn: () =>
-      updateBusiness(business!.id, {
+    mutationFn: async () => {
+      const res = await updateBusiness(business!.id, {
         name,
         description: description || null,
         phone: phone || null,
@@ -106,14 +106,17 @@ export default function SettingsPage() {
         address: address || null,
         timezone,
         currency,
-      }),
-    onSuccess: (res) => {
-      if (res.data && setBusiness) setBusiness(res.data);
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data && setBusiness) setBusiness(data);
       queryClient.invalidateQueries({ queryKey: ['business'] });
       queryClient.invalidateQueries({ queryKey: ['business-slug'] });
       toast.success('Configuración guardada');
     },
-    onError: () => toast.error('Error al guardar'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al guardar'),
   });
 
   const handleCopyLink = async () => {
@@ -307,18 +310,25 @@ export default function SettingsPage() {
   );
 
   const saveSlugMutation = useMutation({
-    mutationFn: () => updateBusiness(business!.id, { slug: slug.trim().toLowerCase() }),
-    onSuccess: (res) => {
-      if (res.error) {
-        toast.error('Ese link ya está en uso, probá otro');
-        return;
-      }
-      if (res.data && setBusiness) setBusiness(res.data);
+    mutationFn: async () => {
+      const res = await updateBusiness(business!.id, { slug: slug.trim().toLowerCase() });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data && setBusiness) setBusiness(data);
       queryClient.invalidateQueries({ queryKey: ['business'] });
       queryClient.invalidateQueries({ queryKey: ['business-slug'] });
       toast.success('Link actualizado');
     },
-    onError: () => toast.error('Error al actualizar el link'),
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('unique')) {
+        toast.error('Ese link ya está en uso, probá otro');
+      } else {
+        toast.error(msg || 'Error al actualizar el link');
+      }
+    },
   });
 
   const renderLinkTab = () => {

@@ -107,7 +107,7 @@ export default function PublicBookingPage() {
       return res.data!;
     },
     onSuccess: (customer) => createAppointmentMut.mutate(customer.id),
-    onError: () => toast.error('Error al procesar tu información'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al procesar tu información'),
   });
 
   const createAppointmentMut = useMutation({
@@ -138,6 +138,9 @@ export default function PublicBookingPage() {
         cancelled_at: null,
         cancellation_reason: null,
         completed_at: null,
+      }).then((res) => {
+        if (res.error) throw new Error(res.error.message);
+        return res.data;
       });
     },
     onSuccess: () => {
@@ -145,7 +148,7 @@ export default function PublicBookingPage() {
         `/book/${slug}/exito?servicio=${encodeURIComponent(selectedService?.name ?? '')}&profesional=${encodeURIComponent(selectedProfessional?.full_name ?? '')}&fecha=${format(selectedDate, 'yyyy-MM-dd')}&hora=${selectedSlot}`
       );
     },
-    onError: () => toast.error('Error al crear la reserva'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear la reserva'),
   });
 
   const nextStep = () => {

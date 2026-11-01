@@ -83,7 +83,7 @@ export default function ProfessionalsPage() {
 
   const createMut = useMutation({
     mutationFn: async (data: FormData) => {
-      const { data: pro } = await createProfessional({
+      const profRes = await createProfessional({
         business_id: business!.id,
         branch_id: null,
         user_id: null,
@@ -94,7 +94,9 @@ export default function ProfessionalsPage() {
         bio: data.bio || null,
         is_active: data.is_active,
       });
-      if (pro && data.service_ids.length > 0) {
+      if (profRes.error) throw new Error(profRes.error.message);
+      const pro = profRes.data!;
+      if (data.service_ids.length > 0) {
         for (const sid of data.service_ids) {
           await assignServiceToProfessional({ professional_id: pro.id, service_id: sid, custom_price: null, custom_duration_minutes: null });
         }
@@ -106,12 +108,12 @@ export default function ProfessionalsPage() {
       toast.success('Profesional creado');
       closeModal();
     },
-    onError: () => toast.error('Error al crear profesional'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear profesional'),
   });
 
   const updateMut = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      await updateProfessional(id, {
+      const res = await updateProfessional(id, {
         full_name: data.full_name,
         email: data.email || null,
         phone: data.phone || null,
@@ -119,16 +121,19 @@ export default function ProfessionalsPage() {
         bio: data.bio || null,
         is_active: data.is_active,
       });
+      if (res.error) throw new Error(res.error.message);
       const existing = await getProfessionalServices(id);
       const existingIds = (existing.data ?? []).map((ps) => ps.service_id);
       for (const sid of existingIds) {
         if (!data.service_ids.includes(sid)) {
-          await removeServiceFromProfessional(id, sid);
+          const rm = await removeServiceFromProfessional(id, sid);
+          if (rm.error) throw new Error(rm.error.message);
         }
       }
       for (const sid of data.service_ids) {
         if (!existingIds.includes(sid)) {
-          await assignServiceToProfessional({ professional_id: id, service_id: sid, custom_price: null, custom_duration_minutes: null });
+          const as = await assignServiceToProfessional({ professional_id: id, service_id: sid, custom_price: null, custom_duration_minutes: null });
+          if (as.error) throw new Error(as.error.message);
         }
       }
     },
@@ -137,17 +142,20 @@ export default function ProfessionalsPage() {
       toast.success('Profesional actualizado');
       closeModal();
     },
-    onError: () => toast.error('Error al actualizar profesional'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar profesional'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteProfessional(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteProfessional(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals', business?.id] });
       toast.success('Profesional eliminado');
       setDeleteModal(null);
     },
-    onError: () => toast.error('Error al eliminar profesional'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al eliminar profesional'),
   });
 
   const closeModal = useCallback(() => {

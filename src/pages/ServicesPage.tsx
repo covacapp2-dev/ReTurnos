@@ -58,8 +58,8 @@ export default function ServicesPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (data: FormData) =>
-      createService({
+    mutationFn: async (data: FormData) => {
+      const res = await createService({
         business_id: business!.id,
         branch_id: null,
         name: data.name,
@@ -72,40 +72,49 @@ export default function ServicesPage() {
         allows_online_booking: true,
         max_advance_days: null,
         min_advance_minutes: null,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services', business?.id] });
       toast.success('Servicio creado');
       closeModal();
     },
-    onError: () => toast.error('Error al crear servicio'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear servicio'),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      updateService(id, {
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
+      const res = await updateService(id, {
         name: data.name,
         description: data.description || null,
         duration_minutes: data.duration_minutes,
         price: data.price,
         is_active: data.is_active,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services', business?.id] });
       toast.success('Servicio actualizado');
       closeModal();
     },
-    onError: () => toast.error('Error al actualizar servicio'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar servicio'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteService(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteService(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services', business?.id] });
       toast.success('Servicio eliminado');
       setDeleteModal(null);
     },
-    onError: () => toast.error('Error al eliminar servicio'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al eliminar servicio'),
   });
 
   const closeModal = useCallback(() => {

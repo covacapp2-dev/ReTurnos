@@ -46,47 +46,56 @@ export default function BranchesPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (data: FormData) =>
-      createBranch({
+    mutationFn: async (data: FormData) => {
+      const res = await createBranch({
         business_id: business!.id,
         name: data.name,
         address: data.address || null,
         phone: data.phone || null,
         email: null,
         is_active: data.is_active,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches', business?.id] });
       toast.success('Sucursal creada');
       closeModal();
     },
-    onError: () => toast.error('Error al crear sucursal'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear sucursal'),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      updateBranch(id, {
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
+      const res = await updateBranch(id, {
         name: data.name,
         address: data.address || null,
         phone: data.phone || null,
         is_active: data.is_active,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches', business?.id] });
       toast.success('Sucursal actualizada');
       closeModal();
     },
-    onError: () => toast.error('Error al actualizar sucursal'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar sucursal'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteBranch(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteBranch(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches', business?.id] });
       toast.success('Sucursal eliminada');
       setDeleteModal(null);
     },
-    onError: () => toast.error('Error al eliminar sucursal'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al eliminar sucursal'),
   });
 
   const closeModal = useCallback(() => {

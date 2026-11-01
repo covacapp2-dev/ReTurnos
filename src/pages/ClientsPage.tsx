@@ -57,46 +57,55 @@ export default function ClientsPage() {
   const displayList = search.length >= 2 ? searchResults.data ?? [] : customers;
 
   const createMut = useMutation({
-    mutationFn: (data: FormData) =>
-      createCustomer({
+    mutationFn: async (data: FormData) => {
+      const res = await createCustomer({
         business_id: business!.id,
         full_name: data.full_name,
         email: data.email || null,
         phone: data.phone || null,
         notes: data.notes || null,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers', business?.id] });
       toast.success('Cliente creado');
       closeModal();
     },
-    onError: () => toast.error('Error al crear cliente'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear cliente'),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      updateCustomer(id, {
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
+      const res = await updateCustomer(id, {
         full_name: data.full_name,
         email: data.email || null,
         phone: data.phone || null,
         notes: data.notes || null,
-      }),
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers', business?.id] });
       toast.success('Cliente actualizado');
       closeModal();
     },
-    onError: () => toast.error('Error al actualizar cliente'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar cliente'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteCustomer(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteCustomer(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers', business?.id] });
       toast.success('Cliente eliminado');
       setDeleteModal(null);
     },
-    onError: () => toast.error('Error al eliminar cliente'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al eliminar cliente'),
   });
 
   const closeModal = useCallback(() => {

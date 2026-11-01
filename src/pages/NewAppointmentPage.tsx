@@ -135,22 +135,23 @@ export default function NewAppointmentPage() {
 
   // --- Mutations ---
   const createCustomerMut = useMutation({
-    mutationFn: () =>
-      createCustomer({
+    mutationFn: async () => {
+      const res = await createCustomer({
         business_id: business!.id,
         full_name: form.newCustomerName,
         email: form.newCustomerEmail || null,
         phone: form.newCustomerPhone || null,
         notes: null,
-      }),
-    onSuccess: (res) => {
-      if (res.data) {
-        setForm((prev) => ({ ...prev, customerId: res.data!.id }));
-        setShowNewCustomer(false);
-        toast.success('Cliente creado');
-      }
+      });
+      if (res.error) throw new Error(res.error.message);
+      return res.data!;
     },
-    onError: () => toast.error('Error al crear cliente'),
+    onSuccess: (customer) => {
+      setForm((prev) => ({ ...prev, customerId: customer.id }));
+      setShowNewCustomer(false);
+      toast.success('Cliente creado');
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear cliente'),
   });
 
   const createAppointmentMut = useMutation({
@@ -181,13 +182,16 @@ export default function NewAppointmentPage() {
         cancelled_at: null,
         cancellation_reason: null,
         completed_at: null,
+      }).then((res) => {
+        if (res.error) throw new Error(res.error.message);
+        return res.data;
       });
     },
     onSuccess: () => {
       toast.success('Turno creado exitosamente');
       navigate('/reservas');
     },
-    onError: () => toast.error('Error al crear turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al crear turno'),
   });
 
   // --- Handlers ---

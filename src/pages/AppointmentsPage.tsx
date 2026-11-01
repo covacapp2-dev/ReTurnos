@@ -112,22 +112,28 @@ export default function AppointmentsPage() {
   );
 
   const cancelMut = useMutation({
-    mutationFn: (id: string) => cancelAppointment(id),
+    mutationFn: async (id: string) => {
+      const res = await cancelAppointment(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments', business?.id] });
       toast.success('Turno cancelado');
       setCancelModal(null);
     },
-    onError: () => toast.error('Error al cancelar turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al cancelar turno'),
   });
 
   const completeMut = useMutation({
-    mutationFn: (id: string) => completeAppointment(id),
+    mutationFn: async (id: string) => {
+      const res = await completeAppointment(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments', business?.id] });
       toast.success('Turno completado');
     },
-    onError: () => toast.error('Error al completar turno'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al completar turno'),
   });
 
   const professionalOptions = useMemo(

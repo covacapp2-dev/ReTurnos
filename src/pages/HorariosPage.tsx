@@ -91,24 +91,22 @@ export default function HorariosPage() {
             is_active: true,
           }))
         );
-      return upsertAvailability(selectedPro, slots);
+      const availRes = await upsertAvailability(selectedPro, slots);
+      if (availRes.error) throw new Error(availRes.error.message);
+      return availRes;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['availability', selectedPro] });
       toast.success('Horarios guardados');
     },
-    onError: () => toast.error('Error al guardar horarios'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al guardar horarios'),
   });
 
   const addBlockedMut = useMutation({
-    mutationFn: (data: BlockedForm) => {
-      const start = data.is_all_day
-        ? `${data.start_time}T00:00:00`
-        : `${data.start_time}T00:00:00`;
-      const end = data.is_all_day
-        ? `${data.end_time}T23:59:59`
-        : `${data.end_time}T23:59:59`;
-      return createBlockedDate({
+    mutationFn: async (data: BlockedForm) => {
+      const start = `${data.start_time}T00:00:00`;
+      const end = `${data.end_time}T23:59:59`;
+      const res = await createBlockedDate({
         professional_id: selectedPro,
         start_time: start,
         end_time: end,
@@ -116,6 +114,8 @@ export default function HorariosPage() {
         is_recurring: false,
         recurrence_rule: null,
       });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blocked-dates', selectedPro] });
@@ -123,16 +123,19 @@ export default function HorariosPage() {
       setBlockedModal(false);
       setBlockedForm({ start_time: '', end_time: '', reason: '', is_all_day: true });
     },
-    onError: () => toast.error('Error al bloquear fecha'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al bloquear fecha'),
   });
 
   const removeBlockedMut = useMutation({
-    mutationFn: (id: string) => deleteBlockedDate(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteBlockedDate(id);
+      if (res.error) throw new Error(res.error.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blocked-dates', selectedPro] });
       toast.success('Fecha desbloqueada');
     },
-    onError: () => toast.error('Error al desbloquear fecha'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al desbloquear fecha'),
   });
 
   const handleProChange = (proId: string) => {
