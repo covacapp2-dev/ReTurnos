@@ -122,7 +122,7 @@ export default function PublicBookingSuccessPage() {
 
         <div className="space-y-3">
           <Link
-            to={`/reserva/${slug}`}
+            to={`/book/${slug}`}
             className="block w-full px-4 py-3 rounded-xl bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B] transition-colors text-sm font-semibold text-center"
           >
             Volver al inicio

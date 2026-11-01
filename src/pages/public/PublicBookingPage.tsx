@@ -142,7 +142,7 @@ export default function PublicBookingPage() {
     },
     onSuccess: () => {
       navigate(
-        `/reserva/${slug}/exito?servicio=${encodeURIComponent(selectedService?.name ?? '')}&profesional=${encodeURIComponent(selectedProfessional?.full_name ?? '')}&fecha=${format(selectedDate, 'yyyy-MM-dd')}&hora=${selectedSlot}`
+        `/book/${slug}/exito?servicio=${encodeURIComponent(selectedService?.name ?? '')}&profesional=${encodeURIComponent(selectedProfessional?.full_name ?? '')}&fecha=${format(selectedDate, 'yyyy-MM-dd')}&hora=${selectedSlot}`
       );
     },
     onError: () => toast.error('Error al crear la reserva'),

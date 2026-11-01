@@ -247,7 +247,7 @@ export default function OnboardingPage() {
     setSchedule(schedule.map((d, idx) => (idx === i ? { ...d, [field]: value } : d)));
 
   const copyLink = () => {
-    const url = `${window.location.origin}/reserva/${bookingSlug}`;
+    const url = `${window.location.origin}/book/${bookingSlug}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -594,7 +594,7 @@ export default function OnboardingPage() {
               <label className="text-xs text-[#9CA3AF] font-medium">Link de reserva pública</label>
               <div className="flex gap-2">
                 <div className="flex-1 rounded-lg border border-[#333] bg-[#080808] px-3 py-2.5 text-white text-sm truncate">
-                  {window.location.origin}/reserva/{bookingSlug}
+                  {window.location.origin}/book/{bookingSlug}
                 </div>
                 <button
                   onClick={copyLink}
@@ -608,7 +608,7 @@ export default function OnboardingPage() {
 
             <div className="flex flex-col gap-3">
               <a
-                href={`/reserva/${bookingSlug}`}
+                href={`/book/${bookingSlug}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[#333] bg-[#1A1A1A] text-white hover:bg-[#222] transition-colors text-sm font-medium"

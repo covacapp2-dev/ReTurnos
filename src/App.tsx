@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
@@ -56,6 +56,11 @@ function ProtectedRoute({ requireBusiness = true }: { requireBusiness?: boolean 
   return <Outlet />;
 }
 
+function RedirectToBooking() {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/book/${slug}`} replace />;
+}
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -97,8 +102,10 @@ export default function App() {
 
         <Route element={<PublicLayout />}>
           <Route path="/book/:slug" element={<PublicBookingPage />} />
-          <Route path="/book/:slug/success" element={<PublicBookingSuccessPage />} />
+          <Route path="/book/:slug/exito" element={<PublicBookingSuccessPage />} />
         </Route>
+
+        <Route path="/:slug" element={<RedirectToBooking />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
