@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -78,6 +78,11 @@ export default function SettingsPage() {
   const [address, setAddress] = useState(business?.address ?? '');
   const [timezone, setTimezone] = useState(business?.timezone ?? 'America/Argentina/Buenos_Aires');
   const [currency, setCurrency] = useState(business?.currency ?? 'ARS');
+  const [slug, setSlug] = useState(business?.slug ?? '');
+
+  useEffect(() => {
+    if (business?.slug) setSlug(business.slug);
+  }, [business?.slug]);
 
   // Reservas form
   const [defaultDuration, setDefaultDuration] = useState(30);
@@ -301,10 +306,56 @@ export default function SettingsPage() {
     </div>
   );
 
+  const saveSlugMutation = useMutation({
+    mutationFn: () => updateBusiness(business!.id, { slug: slug.trim().toLowerCase() }),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error('Ese link ya está en uso, probá otro');
+        return;
+      }
+      if (res.data && setBusiness) setBusiness(res.data);
+      queryClient.invalidateQueries({ queryKey: ['business'] });
+      queryClient.invalidateQueries({ queryKey: ['business-slug'] });
+      toast.success('Link actualizado');
+    },
+    onError: () => toast.error('Error al actualizar el link'),
+  });
+
   const renderLinkTab = () => {
-    const publicUrl = `https://re-turnos.vercel.app/book/${business?.slug}`;
+    const publicUrl = `https://re-turnos.vercel.app/book/${slug || business?.slug}`;
+    const slugValid = /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) && slug.length >= 3;
     return (
       <div className="space-y-4">
+        <Card>
+          <p className="text-sm font-medium text-white mb-3">Personalizá tu link</p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-[#9CA3AF] mb-1.5">Identificador (slug)</label>
+              <div className="flex items-center bg-[#080808] border border-[#333] rounded-lg px-3 py-2.5 focus-within:border-[#DC2626] transition-colors">
+                <span className="text-xs text-[#9CA3AF] font-mono mr-1 shrink-0">/book/</span>
+                <input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  className="flex-1 bg-transparent text-sm text-white font-mono outline-none min-w-0"
+                  placeholder="mi-negocio"
+                />
+              </div>
+              {slug && !slugValid && (
+                <p className="text-xs text-[#F87171] mt-1">Mínimo 3 caracteres, solo letras, números y guiones</p>
+              )}
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={saveSlugMutation.isPending}
+              disabled={!slugValid || slug === business?.slug}
+              onClick={() => saveSlugMutation.mutate()}
+            >
+              Guardar
+            </Button>
+          </div>
+          <p className="text-xs text-[#9CA3AF] mt-2">Si cambiás el link, el anterior deja de funcionar.</p>
+        </Card>
         <Card>
           <p className="text-sm text-[#9CA3AF] mb-2">Tu link público de reservas</p>
           <div className="flex items-center gap-2">
