@@ -105,6 +105,7 @@ export default function SettingsPage() {
     onSuccess: (res) => {
       if (res.data && setBusiness) setBusiness(res.data);
       queryClient.invalidateQueries({ queryKey: ['business'] });
+      queryClient.invalidateQueries({ queryKey: ['business-slug'] });
       toast.success('Configuración guardada');
     },
     onError: () => toast.error('Error al guardar'),
