@@ -30,6 +30,7 @@ import {
 import { searchCustomers, createCustomer } from '../services/customers';
 import { getServices } from '../services/services';
 import { getProfessionals, getProfessionalsForService } from '../services/professionals';
+import { getAvailability } from '../services/availability';
 import type { Customer, Service, Professional } from '../types';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -93,6 +94,13 @@ export default function NewAppointmentPage() {
     select: (res) => res.data ?? [],
   });
 
+  const { data: serviceProfessionals = [] } = useQuery({
+    queryKey: ['professionals-for-service', form.serviceId],
+    queryFn: () => getProfessionalsForService(form.serviceId),
+    enabled: !!form.serviceId,
+    select: (res) => (res.data ?? []).filter((p) => p.is_active),
+  });
+
   const customerResults = useQuery({
     queryKey: ['customers-search', business?.id, customerSearch],
     queryFn: () => searchCustomers(business!.id, customerSearch),
@@ -106,9 +114,29 @@ export default function NewAppointmentPage() {
   );
 
   const professionalOptions = useMemo(() => {
-    if (!form.serviceId) return allProfessionals.filter((p) => p.is_active);
-    return allProfessionals.filter((p) => p.is_active);
-  }, [allProfessionals, form.serviceId]);
+    const active = allProfessionals.filter((p) => p.is_active);
+    if (!form.serviceId || serviceProfessionals.length === 0) return active;
+    return serviceProfessionals;
+  }, [allProfessionals, serviceProfessionals, form.serviceId]);
+
+  // Días con disponibilidad del profesional elegido
+  const { data: proAvailability = [] } = useQuery({
+    queryKey: ['availability', form.professionalId],
+    queryFn: () => getAvailability(form.professionalId),
+    enabled: !!form.professionalId,
+    select: (res) => (res.data ?? []).filter((a) => a.is_active),
+  });
+
+  const availableWeekdays = useMemo(
+    () => new Set(proAvailability.map((a) => a.day_of_week)),
+    [proAvailability]
+  );
+
+  const weekdayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const availableDayNames = useMemo(() => {
+    if (availableWeekdays.size === 0) return [];
+    return [1, 2, 3, 4, 5, 6, 0].filter((d) => availableWeekdays.has(d)).map((d) => weekdayNames[d]);
+  }, [availableWeekdays]);
 
   const { data: availableSlots = [], isLoading: slotsLoading } = useQuery({
     queryKey: [
@@ -481,25 +509,38 @@ export default function NewAppointmentPage() {
               </Button>
             </div>
             <div className="grid grid-cols-7 gap-2">
-              {weekDays.map((day) => (
-                <button
-                  key={day.toISOString()}
-                  onClick={() => setForm({ ...form, date: day })}
-                  className={`flex flex-col items-center rounded-lg border p-3 transition-all ${
-                    isSameDay(day, form.date)
-                      ? 'border-[#DC2626] bg-[#DC2626]/10'
-                      : 'border-[#333] bg-[#1A1A1A] hover:border-[#555]'
-                  }`}
-                >
-                  <span className="text-[#9CA3AF] text-xs uppercase">
-                    {format(day, 'EEE', { locale: es })}
-                  </span>
-                  <span className="text-white font-semibold text-lg">
-                    {format(day, 'd')}
-                  </span>
-                </button>
-              ))}
+              {weekDays.map((day) => {
+                const hasAvailability =
+                  availableWeekdays.size === 0 || availableWeekdays.has(day.getDay());
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => setForm({ ...form, date: day, selectedSlot: '' })}
+                    title={hasAvailability ? undefined : 'Ese día no hay disponibilidad'}
+                    className={`flex flex-col items-center rounded-lg border p-3 transition-all ${
+                      !hasAvailability ? 'opacity-30 cursor-not-allowed' : ''
+                    } ${
+                      isSameDay(day, form.date)
+                        ? 'border-[#DC2626] bg-[#DC2626]/10'
+                        : 'border-[#333] bg-[#1A1A1A] hover:border-[#555]'
+                    }`}
+                  >
+                    <span className="text-[#9CA3AF] text-xs uppercase">
+                      {format(day, 'EEE', { locale: es })}
+                    </span>
+                    <span className="text-white font-semibold text-lg">
+                      {format(day, 'd')}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {availableDayNames.length > 0 && (
+              <p className="text-xs text-[#9CA3AF] text-center">
+                Días con turnos:{' '}
+                <span className="text-white font-medium">{availableDayNames.join(', ')}</span>
+              </p>
+            )}
           </div>
         );
 
@@ -518,7 +559,16 @@ export default function NewAppointmentPage() {
               <div className="text-center py-8">
                 <AlertTriangle size={32} className="mx-auto text-amber-400 mb-3" />
                 <p className="text-sm text-[#9CA3AF]">
-                  No hay horarios disponibles para esta fecha y profesional.
+                  {availableDayNames.length > 0 ? (
+                    <>
+                      El {format(form.date, 'EEEE', { locale: es })} no hay disponibilidad.
+                      <br />
+                      Días con turnos:{' '}
+                      <span className="text-white font-medium">{availableDayNames.join(', ')}</span>
+                    </>
+                  ) : (
+                    'No hay horarios disponibles para esta fecha y profesional.'
+                  )}
                 </p>
               </div>
             ) : (

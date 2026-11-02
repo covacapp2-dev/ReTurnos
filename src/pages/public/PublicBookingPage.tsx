@@ -17,6 +17,7 @@ import { getBusinessBySlug } from '../../services/business';
 import { getServices } from '../../services/services';
 import { getProfessionalsForService, getProfessionals } from '../../services/professionals';
 import { getAvailableSlots, createAppointment } from '../../services/appointments';
+import { getAvailability } from '../../services/availability';
 import { getCustomerByPhone, createCustomer } from '../../services/customers';
 import type { Service, Professional } from '../../types';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -62,7 +63,7 @@ export default function PublicBookingPage() {
     select: (res) => (res.data ?? []).filter((p) => p.is_active),
   });
 
-  const { data: allProfessionals = [] } = useQuery({
+  const { data: allProfessionals = [], isLoading: allProsLoading } = useQuery({
     queryKey: ['professionals', business?.id],
     queryFn: () => getProfessionals(business!.id),
     enabled: !!business?.id && step === 1 && professionals.length === 0,
@@ -70,7 +71,29 @@ export default function PublicBookingPage() {
   });
 
   const displayProfessionals = professionals.length > 0 ? professionals : allProfessionals;
-  const needsProfessionalStep = displayProfessionals.length > 0;
+  const professionalsReady = !professionalsLoading && !(step === 1 && professionals.length === 0 && allProsLoading);
+  const needsProfessionalStep = displayProfessionals.length > 0 || professionalsReady === false;
+
+  // Disponibilidad del profesional elegido: sirve para marcar en el calendario
+  // qué días realmente tiene turnos.
+  const { data: proAvailability = [], isLoading: availabilityLoading } = useQuery({
+    queryKey: ['availability', selectedProfessional?.id],
+    queryFn: () => getAvailability(selectedProfessional!.id),
+    enabled: !!selectedProfessional?.id,
+    select: (res) => (res.data ?? []).filter((a) => a.is_active),
+  });
+
+  const availableWeekdays = useMemo(
+    () => new Set(proAvailability.map((a) => a.day_of_week)),
+    [proAvailability]
+  );
+
+  const weekdayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  const availableDayNames = useMemo(() => {
+    if (availableWeekdays.size === 0) return [];
+    return [1, 2, 3, 4, 5, 6, 0].filter((d) => availableWeekdays.has(d)).map((d) => weekdayNames[d]);
+  }, [availableWeekdays]);
 
   const { data: availableSlots = [], isLoading: slotsLoading } = useQuery({
     queryKey: [
@@ -175,6 +198,10 @@ export default function PublicBookingPage() {
       }
     }
     if (step === STEPS.length - 1) {
+      if (!selectedProfessional) {
+        toast.error('Seleccioná un profesional');
+        return;
+      }
       createCustomerMut.mutate();
       return;
     }
@@ -253,7 +280,11 @@ export default function PublicBookingPage() {
                 {services.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedService(s)}
+                    onClick={() => {
+                      setSelectedService(s);
+                      setSelectedProfessional(null);
+                      setSelectedSlot('');
+                    }}
                     className={`text-left rounded-xl border p-4 transition-all ${
                       selectedService?.id === s.id
                         ? 'border-[#DC2626] bg-[#DC2626]/10 ring-1 ring-[#DC2626]/50'
@@ -293,7 +324,7 @@ export default function PublicBookingPage() {
             <p className="text-[#9CA3AF] text-sm">
               Seleccioná con quién querés tu turno.
             </p>
-            {professionalsLoading ? (
+            {!professionalsReady ? (
               <LoadingSpinner size="sm" />
             ) : displayProfessionals.length === 0 ? (
               <p className="text-[#9CA3AF] text-center py-8">
@@ -304,7 +335,10 @@ export default function PublicBookingPage() {
                 {displayProfessionals.map((p) => (
                   <button
                     key={p.id}
-                    onClick={() => setSelectedProfessional(p)}
+                    onClick={() => {
+                      setSelectedProfessional(p);
+                      setSelectedSlot('');
+                    }}
                     className={`text-left rounded-xl border p-4 transition-all ${
                       selectedProfessional?.id === p.id
                         ? 'border-[#DC2626] bg-[#DC2626]/10 ring-1 ring-[#DC2626]/50'
@@ -381,16 +415,25 @@ export default function PublicBookingPage() {
                   const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
                   const isFuture = day > maxDate;
                   const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
-                  const isDisabled = isPast || isFuture || !isCurrentMonth;
+                  const hasAvailability =
+                    availableWeekdays.size === 0 || availableWeekdays.has(day.getDay());
+                  const isDisabled = isPast || isFuture || !isCurrentMonth || !hasAvailability;
 
                   return (
                     <button
                       key={i}
-                      onClick={() => !isDisabled && setSelectedDate(day)}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        setSelectedDate(day);
+                        setSelectedSlot('');
+                      }}
                       disabled={isDisabled}
+                      title={
+                        hasAvailability ? undefined : 'Ese día no hay disponibilidad'
+                      }
                       className={`relative rounded-lg p-2 text-center transition-all ${
                         isDisabled
-                          ? 'opacity-30 cursor-not-allowed'
+                          ? 'opacity-25 cursor-not-allowed'
                           : isSelected
                           ? 'bg-[#DC2626] text-white'
                           : isToday
@@ -403,6 +446,12 @@ export default function PublicBookingPage() {
                   );
                 })}
               </div>
+              {availableDayNames.length > 0 && (
+                <p className="text-xs text-[#9CA3AF] mt-3 text-center">
+                  Días con turnos:{' '}
+                  <span className="text-white font-medium">{availableDayNames.join(', ')}</span>
+                </p>
+              )}
             </div>
             <div className="rounded-xl border border-[#333] bg-[#1A1A1A] p-3 flex items-center gap-3">
               <Calendar size={18} className="text-[#DC2626] shrink-0" />
@@ -430,7 +479,16 @@ export default function PublicBookingPage() {
               <div className="text-center py-8 rounded-xl border border-[#333] bg-[#1A1A1A]">
                 <Clock size={32} className="mx-auto text-[#9CA3AF] mb-3" />
                 <p className="text-[#9CA3AF] text-sm">
-                  No hay horarios disponibles para esta fecha.
+                  {availableDayNames.length > 0 ? (
+                    <>
+                      El {format(selectedDate, 'EEEE', { locale: es })} no hay disponibilidad.
+                      <br />
+                      Días con turnos:{' '}
+                      <span className="text-white font-medium">{availableDayNames.join(', ')}</span>
+                    </>
+                  ) : (
+                    'No hay horarios disponibles para esta fecha.'
+                  )}
                 </p>
                 <button
                   onClick={prevStep}
