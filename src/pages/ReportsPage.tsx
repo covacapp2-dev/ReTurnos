@@ -9,6 +9,7 @@ import {
   XCircle,
   UserX,
   TrendingUp,
+  ShoppingBag,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -20,6 +21,7 @@ import {
   getTopServices,
   getTopProfessionals,
 } from '../services/reports';
+import { getSales } from '../services/sales';
 
 type DatePreset = 'today' | 'week' | 'month' | 'year' | 'custom';
 
@@ -109,7 +111,23 @@ export default function ReportsPage() {
     select: (res) => res.data ?? [],
   });
 
-  const isLoading = statsLoading || revenueLoading || servicesLoading || profsLoading;
+  // Rango local → ISO (para comparar contra timestamptz correctamente)
+  const salesRange = useMemo(() => {
+    const start = new Date(dateRange.start);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(dateRange.end);
+    end.setHours(23, 59, 59, 999);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }, [dateRange]);
+
+  const { data: salesRows = [], isLoading: salesLoading } = useQuery({
+    queryKey: ['report-product-sales', businessId, salesRange],
+    queryFn: () => getSales(businessId!, { from: salesRange.from, to: salesRange.to }),
+    enabled: !!businessId,
+    select: (res) => (res.data ?? []).map((s) => ({ ...s, items: s.items ?? [] })),
+  });
+
+  const isLoading = statsLoading || revenueLoading || servicesLoading || profsLoading || salesLoading;
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Usuario';
 
@@ -121,6 +139,48 @@ export default function ReportsPage() {
   const maxProfCount = useMemo(
     () => Math.max(...(topProfessionals?.map((p) => p.appointment_count) ?? [1]), 1),
     [topProfessionals]
+  );
+
+  // Ventas agrupadas por producto en el rango elegido
+  interface ProductRow {
+    key: string;
+    name: string;
+    qty: number;
+    cost: number;
+    revenue: number;
+    profit: number;
+  }
+
+  const productSales = useMemo<ProductRow[]>(() => {
+    const map = new Map<string, ProductRow>();
+    for (const sale of salesRows) {
+      for (const item of sale.items) {
+        const key = item.product_id ?? item.product_name;
+        const row =
+          map.get(key) ??
+          ({ key, name: item.product_name, qty: 0, cost: 0, revenue: 0, profit: 0 } as ProductRow);
+        row.qty += item.quantity;
+        row.cost += item.quantity * item.unit_cost;
+        row.revenue += item.quantity * item.unit_price;
+        row.profit = row.revenue - row.cost;
+        map.set(key, row);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
+  }, [salesRows]);
+
+  const productTotals = useMemo(
+    () =>
+      productSales.reduce(
+        (acc, r) => ({
+          qty: acc.qty + r.qty,
+          cost: acc.cost + r.cost,
+          revenue: acc.revenue + r.revenue,
+          profit: acc.profit + r.profit,
+        }),
+        { qty: 0, cost: 0, revenue: 0, profit: 0 }
+      ),
+    [productSales]
   );
 
   // Simulated reservation-per-day and per-hour data
@@ -342,6 +402,75 @@ export default function ReportsPage() {
               )}
             </Card>
           </div>
+
+          {/* Ventas por producto */}
+          <Card className="mb-6">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <ShoppingBag size={16} className="text-[#DC2626]" />
+              Ventas por producto
+            </h3>
+            {productSales.length === 0 ? (
+              <p className="text-sm text-[#9CA3AF]">
+                Sin ventas de productos para el período seleccionado
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#333]">
+                      <th className="text-left px-3 py-2.5 font-medium text-[#9CA3AF]">Producto</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-[#9CA3AF]">Cant.</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-[#9CA3AF]">Costo</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-[#9CA3AF]">Precio</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-[#9CA3AF]">Beneficio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productSales.map((row) => (
+                      <tr key={row.key} className="border-b border-[#333]/50 last:border-0">
+                        <td className="px-3 py-2.5 text-white">{row.name}</td>
+                        <td className="px-3 py-2.5 text-right text-[#9CA3AF]">{row.qty}</td>
+                        <td className="px-3 py-2.5 text-right text-[#9CA3AF]">
+                          ${row.cost.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-white font-medium">
+                          ${row.revenue.toFixed(2)}
+                        </td>
+                        <td
+                          className={`px-3 py-2.5 text-right font-semibold ${
+                            row.profit >= 0 ? 'text-emerald-400' : 'text-red-400'
+                          }`}
+                        >
+                          {row.profit >= 0 ? '+' : ''}${row.profit.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-[#333] bg-[#111]">
+                      <td className="px-3 py-2.5 text-white font-semibold">Totales</td>
+                      <td className="px-3 py-2.5 text-right text-white font-semibold">
+                        {productTotals.qty}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-[#9CA3AF]">
+                        ${productTotals.cost.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-white font-semibold">
+                        ${productTotals.revenue.toFixed(2)}
+                      </td>
+                      <td
+                        className={`px-3 py-2.5 text-right font-bold ${
+                          productTotals.profit >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        }`}
+                      >
+                        {productTotals.profit >= 0 ? '+' : ''}${productTotals.profit.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </Card>
         </>
       )}
     </div>
