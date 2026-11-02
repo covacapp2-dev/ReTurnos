@@ -65,7 +65,7 @@ export async function getSales(
 ): Promise<{ data: SaleWithItems[] | null; error: ServiceError | null }> {
   let query = supabase
     .from('sales')
-    .select('*, sale_items(*)')
+    .select('*, items:sale_items(*)')
     .eq('business_id', businessId)
     .order('created_at', { ascending: false });
 

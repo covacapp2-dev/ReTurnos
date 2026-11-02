@@ -54,7 +54,7 @@ export default function NewSalePage() {
     queryKey: ['sales', business?.id, 'today'],
     queryFn: () => getSales(business!.id, { from: startOfDay }),
     enabled: !!business?.id,
-    select: (res) => res.data ?? [],
+    select: (res) => (res.data ?? []).map((s) => ({ ...s, items: s.items ?? [] })),
   });
 
   // --- Carrito ---
