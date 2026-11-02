@@ -85,6 +85,8 @@ export async function upsertAvailability(
 
   if (existing.error) return { error: { message: existing.error.message } };
 
+  if (slots.length === 0) return { error: null };
+
   const { error } = await supabase
     .from('availability')
     .insert(slots.map((slot) => ({ ...slot, professional_id: professionalId })));

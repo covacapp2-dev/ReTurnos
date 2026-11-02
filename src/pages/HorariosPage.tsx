@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, CalendarOff } from 'lucide-react';
@@ -45,11 +45,33 @@ function buildEmptySchedule(): DaySchedule[] {
   }));
 }
 
+function buildScheduleFrom(avail: Availability[]): DaySchedule[] {
+  const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
+  avail.forEach((a) => {
+    const day = DAYS.find((d) => d.value === a.day_of_week);
+    if (!day) return;
+    if (!grouped[a.day_of_week]) grouped[a.day_of_week] = [];
+    grouped[a.day_of_week].push({
+      start_time: a.start_time.slice(0, 5),
+      end_time: a.end_time.slice(0, 5),
+    });
+  });
+
+  return DAYS.map((d) => ({
+    day_of_week: d.value,
+    is_active: !!grouped[d.value]?.length,
+    blocks: grouped[d.value]?.length
+      ? grouped[d.value]
+      : [{ start_time: '09:00', end_time: '18:00' }],
+  }));
+}
+
 export default function HorariosPage() {
   const { business } = useAuth();
   const queryClient = useQueryClient();
   const [selectedPro, setSelectedPro] = useState('');
   const [schedule, setSchedule] = useState<DaySchedule[]>(buildEmptySchedule());
+  const [dirty, setDirty] = useState(false);
   const [blockedModal, setBlockedModal] = useState(false);
   const [blockedForm, setBlockedForm] = useState<BlockedForm>({
     start_time: '',
@@ -65,19 +87,29 @@ export default function HorariosPage() {
     select: (res) => res.data ?? [],
   });
 
-  const { data: availabilityData = [], isLoading: loadingAvail } = useQuery({
+  const { data: availabilityData = [], isLoading: loadingAvail, isFetching } = useQuery({
     queryKey: ['availability', selectedPro],
     queryFn: () => getAvailability(selectedPro),
     enabled: !!selectedPro,
     select: (res) => res.data ?? [],
   });
-
   const { data: blockedDates = [], isLoading: loadingBlocked } = useQuery({
     queryKey: ['blocked-dates', selectedPro],
     queryFn: () => getBlockedDates(selectedPro),
     enabled: !!selectedPro,
     select: (res) => res.data ?? [],
   });
+
+  // Carga los horarios guardados apenas llegan los datos del profesional elegido.
+  // Antes se leían antes de llegar y la pantalla siempre mostraba todo apagado.
+  useEffect(() => {
+    if (!selectedPro) {
+      setSchedule(buildEmptySchedule());
+      return;
+    }
+    if (loadingAvail || isFetching || dirty) return;
+    setSchedule(buildScheduleFrom(availabilityData));
+  }, [selectedPro, availabilityData, loadingAvail, isFetching, dirty]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -97,7 +129,9 @@ export default function HorariosPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['availability', selectedPro] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       toast.success('Horarios guardados');
+      setDirty(false);
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al guardar horarios'),
   });
@@ -139,35 +173,21 @@ export default function HorariosPage() {
   });
 
   const handleProChange = (proId: string) => {
+    setDirty(false);
     setSelectedPro(proId);
-    const avail = availabilityData;
-    if (avail.length > 0) {
-      const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
-      avail.forEach((a: Availability) => {
-        if (!grouped[a.day_of_week]) grouped[a.day_of_week] = [];
-        grouped[a.day_of_week].push({ start_time: a.start_time, end_time: a.end_time });
-      });
-      setSchedule(
-        DAYS.map((d) => ({
-          day_of_week: d.value,
-          is_active: !!grouped[d.value]?.length,
-          blocks: grouped[d.value]?.length
-            ? grouped[d.value]
-            : [{ start_time: '09:00', end_time: '18:00' }],
-        }))
-      );
-    } else {
-      setSchedule(buildEmptySchedule());
-    }
+    // Si no hay datos nuevos que esperar, arrancamos de vacío.
+    if (!proId) setSchedule(buildEmptySchedule());
   };
 
   const toggleDay = (day: number) => {
+    setDirty(true);
     setSchedule((prev) =>
       prev.map((d) => (d.day_of_week === day ? { ...d, is_active: !d.is_active } : d))
     );
   };
 
   const updateBlock = (day: number, index: number, field: 'start_time' | 'end_time', value: string) => {
+    setDirty(true);
     setSchedule((prev) =>
       prev.map((d) =>
         d.day_of_week === day
@@ -181,6 +201,7 @@ export default function HorariosPage() {
   };
 
   const addBlock = (day: number) => {
+    setDirty(true);
     setSchedule((prev) =>
       prev.map((d) =>
         d.day_of_week === day
@@ -191,6 +212,7 @@ export default function HorariosPage() {
   };
 
   const removeBlock = (day: number, index: number) => {
+    setDirty(true);
     setSchedule((prev) =>
       prev.map((d) =>
         d.day_of_week === day
