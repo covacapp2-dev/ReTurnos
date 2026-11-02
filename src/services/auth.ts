@@ -8,12 +8,18 @@ interface AuthError {
 export async function signUp(
   email: string,
   password: string,
-  fullName: string
+  fullName: string,
+  bookingMode?: string
 ): Promise<{ profile: Profile | null; error: AuthError | null }> {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName } },
+    options: {
+      data: {
+        full_name: fullName,
+        booking_mode: bookingMode || 'general',
+      },
+    },
   });
 
   if (authError) return { profile: null, error: { message: authError.message } };

@@ -1,10 +1,27 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, CheckCircle, Calendar, Goal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { signUp } from '../services/auth';
+
+type BookingMode = 'general' | 'sports';
+
+const MODES: { value: BookingMode; label: string; description: string; icon: typeof Calendar }[] = [
+  {
+    value: 'general',
+    label: 'Turnos en general',
+    description: 'Salones, consultorios, peluquerías, estudios y cualquier rubro',
+    icon: Calendar,
+  },
+  {
+    value: 'sports',
+    label: 'Complejo deportivo',
+    description: 'Canchas de fútbol, pádel, tenis y otros deportes',
+    icon: Goal,
+  },
+];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -16,6 +33,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [bookingMode, setBookingMode] = useState<BookingMode | ''>('');
+  const [modeError, setModeError] = useState('');
 
   const [errors, setErrors] = useState<{
     fullName?: string;
@@ -49,8 +68,14 @@ export default function RegisterPage() {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
+    if (!bookingMode) {
+      setModeError('Elegí qué tipo de sistema querés usar');
+    } else {
+      setModeError('');
+    }
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).length === 0 && !!bookingMode;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +86,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { error } = await signUp(email, password, fullName.trim());
+      const { error } = await signUp(email, password, fullName.trim(), bookingMode);
 
       if (error) {
         toast.error(error.message);
@@ -101,6 +126,40 @@ export default function RegisterPage() {
       <h2 className="text-lg font-semibold text-white mb-4">Crear cuenta</h2>
 
       <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <p className="text-xs font-medium text-[#9CA3AF] mb-2">
+            ¿Qué tipo de sistema querés usar?
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {MODES.map((m) => {
+              const selected = bookingMode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => {
+                    setBookingMode(m.value);
+                    setModeError('');
+                  }}
+                  className={`text-left rounded-xl border p-3 transition-all ${
+                    selected
+                      ? 'border-[#DC2626] bg-[#DC2626]/10 ring-1 ring-[#DC2626]/40'
+                      : 'border-[#333] bg-[#111] hover:border-[#555]'
+                  }`}
+                >
+                  <m.icon
+                    size={20}
+                    className={selected ? 'text-[#DC2626] mb-1.5' : 'text-[#9CA3AF] mb-1.5'}
+                  />
+                  <p className="text-sm font-semibold text-white">{m.label}</p>
+                  <p className="text-xs text-[#9CA3AF] mt-0.5 leading-snug">{m.description}</p>
+                </button>
+              );
+            })}
+          </div>
+          {modeError && <p className="text-xs text-red-400 mt-1.5">{modeError}</p>}
+        </div>
+
         <Input
           label="Nombre completo"
           icon={User}

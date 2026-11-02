@@ -15,6 +15,7 @@ const ServicesPage = lazy(() => import('./pages/ServicesPage'));
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const NewSalePage = lazy(() => import('./pages/NewSalePage'));
+const SportsLobbyPage = lazy(() => import('./pages/SportsLobbyPage'));
 const ProfessionalsPage = lazy(() => import('./pages/ProfessionalsPage'));
 const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const BranchesPage = lazy(() => import('./pages/BranchesPage'));
@@ -63,6 +64,14 @@ function RedirectToBooking() {
   return <Navigate to={`/book/${slug}`} replace />;
 }
 
+// Inicio según el tipo de sistema elegido al registrarse:
+// "general" → dashboard normal | "sports" → lobby de complejo deportivo
+function HomeRoute() {
+  const { user } = useAuthStore();
+  const bookingMode = user?.user_metadata?.booking_mode as string | undefined;
+  return bookingMode === 'sports' ? <SportsLobbyPage /> : <DashboardPage />;
+}
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -77,7 +86,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<HomeRoute />} />
             <Route path="/appointments/new" element={<NewAppointmentPage />} />
             <Route path="/appointments" element={<AppointmentsPage />} />
             <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
