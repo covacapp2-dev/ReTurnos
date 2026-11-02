@@ -68,7 +68,7 @@ export default function Modal({
             </button>
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4 max-h-[85vh] overflow-y-auto">{children}</div>
       </div>
     </div>
   );

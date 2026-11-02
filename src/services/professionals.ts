@@ -107,6 +107,20 @@ export async function removeServiceFromProfessional(
   return { error: error ? { message: error.message } : null };
 }
 
+export async function updateServiceDuration(
+  professionalId: string,
+  serviceId: string,
+  customDurationMinutes: number | null
+): Promise<{ error: ServiceError | null }> {
+  const { error } = await supabase
+    .from('professional_services')
+    .update({ custom_duration_minutes: customDurationMinutes })
+    .eq('professional_id', professionalId)
+    .eq('service_id', serviceId);
+
+  return { error: error ? { message: error.message } : null };
+}
+
 export async function getProfessionalsForService(
   serviceId: string
 ): Promise<{ data: Professional[] | null; error: ServiceError | null }> {

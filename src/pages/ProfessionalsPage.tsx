@@ -11,9 +11,11 @@ import {
   getProfessionalServices,
   assignServiceToProfessional,
   removeServiceFromProfessional,
+  updateServiceDuration,
 } from '../services/professionals';
 import { getServices } from '../services/services';
-import type { Professional, ProfessionalService } from '../types';
+import { getAvailability, upsertAvailability } from '../services/availability';
+import type { Professional, ProfessionalService, Availability } from '../types';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
@@ -25,6 +27,65 @@ import SearchInput from '../components/ui/SearchInput';
 import Textarea from '../components/ui/Textarea';
 import Avatar from '../components/ui/Avatar';
 
+const DAYS = [
+  { value: 1, label: 'Lunes' },
+  { value: 2, label: 'Martes' },
+  { value: 3, label: 'Miércoles' },
+  { value: 4, label: 'Jueves' },
+  { value: 5, label: 'Viernes' },
+  { value: 6, label: 'Sábado' },
+  { value: 0, label: 'Domingo' },
+];
+
+interface DaySchedule {
+  day_of_week: number;
+  is_active: boolean;
+  blocks: { start_time: string; end_time: string }[];
+}
+
+function emptySchedule(): DaySchedule[] {
+  return DAYS.map((d) => ({
+    day_of_week: d.value,
+    is_active: false,
+    blocks: [{ start_time: '09:00', end_time: '18:00' }],
+  }));
+}
+
+function scheduleFromAvailability(avail: Availability[]): DaySchedule[] {
+  const grouped: Record<number, { start_time: string; end_time: string }[]> = {};
+  avail.forEach((a) => {
+    if (!DAYS.some((d) => d.value === a.day_of_week)) return;
+    if (!grouped[a.day_of_week]) grouped[a.day_of_week] = [];
+    grouped[a.day_of_week].push({
+      start_time: a.start_time.slice(0, 5),
+      end_time: a.end_time.slice(0, 5),
+    });
+  });
+
+  return DAYS.map((d) => ({
+    day_of_week: d.value,
+    is_active: !!grouped[d.value]?.length,
+    blocks: grouped[d.value]?.length
+      ? grouped[d.value]
+      : [{ start_time: '09:00', end_time: '18:00' }],
+  }));
+}
+
+function scheduleToSlots(schedule: DaySchedule[]) {
+  return schedule
+    .filter((d) => d.is_active)
+    .flatMap((d) =>
+      d.blocks
+        .filter((b) => b.start_time && b.end_time && b.start_time < b.end_time)
+        .map((b) => ({
+          day_of_week: d.day_of_week,
+          start_time: b.start_time,
+          end_time: b.end_time,
+          is_active: true,
+        }))
+    );
+}
+
 interface FormData {
   full_name: string;
   email: string;
@@ -33,6 +94,8 @@ interface FormData {
   bio: string;
   is_active: boolean;
   service_ids: string[];
+  durations: Record<string, string>;
+  schedule: DaySchedule[];
 }
 
 const defaultForm: FormData = {
@@ -43,6 +106,8 @@ const defaultForm: FormData = {
   bio: '',
   is_active: true,
   service_ids: [],
+  durations: {},
+  schedule: emptySchedule(),
 };
 
 export default function ProfessionalsPage() {
@@ -53,6 +118,7 @@ export default function ProfessionalsPage() {
   const [deleteModal, setDeleteModal] = useState<string | null>(null);
   const [editing, setEditing] = useState<Professional | null>(null);
   const [form, setForm] = useState<FormData>(defaultForm);
+  const [availLoaded, setAvailLoaded] = useState(false);
 
   const { data: professionals = [], isLoading } = useQuery({
     queryKey: ['professionals', business?.id],
@@ -96,15 +162,27 @@ export default function ProfessionalsPage() {
       });
       if (profRes.error) throw new Error(profRes.error.message);
       const pro = profRes.data!;
-      if (data.service_ids.length > 0) {
-        for (const sid of data.service_ids) {
-          await assignServiceToProfessional({ professional_id: pro.id, service_id: sid, custom_price: null, custom_duration_minutes: null });
-        }
+      for (const sid of data.service_ids) {
+        const mins = parseInt(data.durations[sid] ?? '', 10);
+        const as = await assignServiceToProfessional({
+          professional_id: pro.id,
+          service_id: sid,
+          custom_price: null,
+          custom_duration_minutes: Number.isFinite(mins) && mins > 0 ? mins : null,
+        });
+        if (as.error) throw new Error(as.error.message);
+      }
+      const slots = scheduleToSlots(data.schedule);
+      if (slots.length > 0) {
+        const av = await upsertAvailability(pro.id, slots);
+        if (av.error) throw new Error(av.error.message);
       }
       return pro;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals', business?.id] });
+      queryClient.invalidateQueries({ queryKey: ['professional-service-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['availability'] });
       toast.success('Profesional creado');
       closeModal();
     },
@@ -122,23 +200,48 @@ export default function ProfessionalsPage() {
         is_active: data.is_active,
       });
       if (res.error) throw new Error(res.error.message);
+
+      // Servicios asignados + duración personalizada
       const existing = await getProfessionalServices(id);
-      const existingIds = (existing.data ?? []).map((ps) => ps.service_id);
-      for (const sid of existingIds) {
-        if (!data.service_ids.includes(sid)) {
-          const rm = await removeServiceFromProfessional(id, sid);
+      if (existing.error) throw new Error(existing.error.message);
+      const existingRows = existing.data ?? [];
+      for (const row of existingRows) {
+        if (!data.service_ids.includes(row.service_id)) {
+          const rm = await removeServiceFromProfessional(id, row.service_id);
           if (rm.error) throw new Error(rm.error.message);
         }
       }
+      const existingIds = existingRows.map((r) => r.service_id);
       for (const sid of data.service_ids) {
-        if (!existingIds.includes(sid)) {
-          const as = await assignServiceToProfessional({ professional_id: id, service_id: sid, custom_price: null, custom_duration_minutes: null });
+        const mins = parseInt(data.durations[sid] ?? '', 10);
+        const duration = Number.isFinite(mins) && mins > 0 ? mins : null;
+        if (existingIds.includes(sid)) {
+          const current = existingRows.find((r) => r.service_id === sid)?.custom_duration_minutes ?? null;
+          if (current !== duration) {
+            const upd = await updateServiceDuration(id, sid, duration);
+            if (upd.error) throw new Error(upd.error.message);
+          }
+        } else {
+          const as = await assignServiceToProfessional({
+            professional_id: id,
+            service_id: sid,
+            custom_price: null,
+            custom_duration_minutes: duration,
+          });
           if (as.error) throw new Error(as.error.message);
         }
+      }
+
+      // Disponibilidad horaria
+      if (availLoaded) {
+        const av = await upsertAvailability(id, scheduleToSlots(data.schedule));
+        if (av.error) throw new Error(av.error.message);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals', business?.id] });
+      queryClient.invalidateQueries({ queryKey: ['professional-service-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['availability'] });
       toast.success('Profesional actualizado');
       closeModal();
     },
@@ -162,28 +265,61 @@ export default function ProfessionalsPage() {
     setModalOpen(false);
     setEditing(null);
     setForm(defaultForm);
+    setAvailLoaded(false);
   }, []);
 
   const openCreate = () => {
     setEditing(null);
     setForm(defaultForm);
+    setAvailLoaded(true);
     setModalOpen(true);
   };
 
   const openEdit = async (pro: Professional) => {
     setEditing(pro);
-    const res = await getProfessionalServices(pro.id);
-    const serviceIds = (res.data ?? []).map((ps: ProfessionalService) => ps.service_id);
-    setForm({
-      full_name: pro.full_name,
-      email: pro.email ?? '',
-      phone: pro.phone ?? '',
-      avatar_url: pro.avatar_url ?? '',
-      bio: pro.bio ?? '',
-      is_active: pro.is_active,
-      service_ids: serviceIds,
-    });
+    setAvailLoaded(false);
+    setForm({ ...defaultForm, full_name: pro.full_name });
     setModalOpen(true);
+
+    const svcRes = await getProfessionalServices(pro.id);
+    if (!svcRes.error) {
+      const rows = svcRes.data ?? [];
+      const durations: Record<string, string> = {};
+      rows.forEach((ps) => {
+        if (ps.custom_duration_minutes != null) {
+          durations[ps.service_id] = String(ps.custom_duration_minutes);
+        }
+      });
+      setForm((prev) => ({
+        ...prev,
+        full_name: pro.full_name,
+        email: pro.email ?? '',
+        phone: pro.phone ?? '',
+        avatar_url: pro.avatar_url ?? '',
+        bio: pro.bio ?? '',
+        is_active: pro.is_active,
+        service_ids: rows.map((ps: ProfessionalService) => ps.service_id),
+        durations,
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        full_name: pro.full_name,
+        email: pro.email ?? '',
+        phone: pro.phone ?? '',
+        avatar_url: pro.avatar_url ?? '',
+        bio: pro.bio ?? '',
+        is_active: pro.is_active,
+      }));
+    }
+
+    const availRes = await getAvailability(pro.id);
+    if (availRes.error) {
+      toast.error('No se pudieron cargar los horarios');
+      return;
+    }
+    setForm((prev) => ({ ...prev, schedule: scheduleFromAvailability(availRes.data ?? []) }));
+    setAvailLoaded(true);
   };
 
   const toggleService = (sid: string) => {
@@ -192,6 +328,58 @@ export default function ProfessionalsPage() {
       service_ids: prev.service_ids.includes(sid)
         ? prev.service_ids.filter((id) => id !== sid)
         : [...prev.service_ids, sid],
+    }));
+  };
+
+  const setDuration = (sid: string, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      durations: { ...prev.durations, [sid]: value.replace(/[^0-9]/g, '').slice(0, 4) },
+    }));
+  };
+
+  const toggleDay = (day: number) => {
+    setForm((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) =>
+        d.day_of_week === day ? { ...d, is_active: !d.is_active } : d
+      ),
+    }));
+  };
+
+  const updateBlock = (day: number, index: number, field: 'start_time' | 'end_time', value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) =>
+        d.day_of_week === day
+          ? {
+              ...d,
+              blocks: d.blocks.map((b, i) => (i === index ? { ...b, [field]: value } : b)),
+            }
+          : d
+      ),
+    }));
+  };
+
+  const addBlock = (day: number) => {
+    setForm((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) =>
+        d.day_of_week === day
+          ? { ...d, blocks: [...d.blocks, { start_time: '09:00', end_time: '18:00' }] }
+          : d
+      ),
+    }));
+  };
+
+  const removeBlock = (day: number, index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((d) =>
+        d.day_of_week === day
+          ? { ...d, blocks: d.blocks.filter((_, i) => i !== index) }
+          : d
+      ),
     }));
   };
 
@@ -271,7 +459,7 @@ export default function ProfessionalsPage() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Editar profesional' : 'Nuevo profesional'} maxWidth="lg">
+      <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Editar profesional' : 'Nuevo profesional'} maxWidth="xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Nombre completo"
@@ -308,23 +496,150 @@ export default function ProfessionalsPage() {
           />
           <div>
             <label className="block text-sm font-medium text-white mb-2">Servicios asignados</label>
-            <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border border-[#333] p-3">
+            <div className="max-h-56 overflow-y-auto space-y-2 rounded-lg border border-[#333] p-3">
               {allServices.length === 0 ? (
                 <p className="text-xs text-[#9CA3AF]">No hay servicios disponibles</p>
               ) : (
-                allServices.map((s) => (
-                  <label key={s.id} className="flex items-center gap-3 cursor-pointer py-1">
-                    <input
-                      type="checkbox"
-                      checked={form.service_ids.includes(s.id)}
-                      onChange={() => toggleService(s.id)}
-                      className="w-4 h-4 rounded border-[#333] bg-[#1A1A1A] text-[#DC2626] focus:ring-[#DC2626]/50"
-                    />
-                    <span className="text-sm text-white">{s.name}</span>
-                    <span className="text-xs text-[#9CA3AF] ml-auto">{s.duration_minutes} min</span>
-                  </label>
-                ))
+                allServices.map((s) => {
+                  const checked = form.service_ids.includes(s.id);
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 py-1">
+                      <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleService(s.id)}
+                          className="w-4 h-4 rounded border-[#333] bg-[#1A1A1A] text-[#DC2626] focus:ring-[#DC2626]/50"
+                        />
+                        <span className="text-sm text-white truncate">{s.name}</span>
+                      </label>
+                      {checked && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="number"
+                            min={1}
+                            max={999}
+                            value={form.durations[s.id] ?? ''}
+                            onChange={(e) => setDuration(s.id, e.target.value)}
+                            placeholder={String(s.duration_minutes)}
+                            title="Minutos que tarda este profesional en este servicio"
+                            className="w-20 rounded-lg border border-[#333] bg-[#080808] text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#DC2626]/50 placeholder:text-[#9CA3AF]"
+                          />
+                          <span className="text-xs text-[#9CA3AF]">min</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
+            </div>
+            <p className="mt-1.5 text-xs text-[#9CA3AF]">
+              Los minutos son opcionales: si los dejás vacíos se usa el tiempo del servicio.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-white">Horario disponible</label>
+              <span className="text-xs text-[#9CA3AF]">Días y horarios de atención</span>
+            </div>
+            <div className="space-y-2">
+              {form.schedule.map((d) => {
+                const dayLabel = DAYS.find((x) => x.value === d.day_of_week)?.label ?? '';
+                return (
+                  <div key={d.day_of_week} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleDay(d.day_of_week)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                        d.is_active ? 'bg-[#DC2626]' : 'bg-[#333]'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          d.is_active ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs w-20 ${d.is_active ? 'text-white' : 'text-[#9CA3AF]'}`}>
+                      {dayLabel}
+                    </span>
+                    {d.is_active && (
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <input
+                          type="time"
+                          value={d.blocks[0]?.start_time ?? '09:00'}
+                          onChange={(e) => updateBlock(d.day_of_week, 0, 'start_time', e.target.value)}
+                          className="rounded-lg border border-[#333] bg-[#080808] text-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#DC2626]/50"
+                        />
+                        <span className="text-[#9CA3AF]">—</span>
+                        <input
+                          type="time"
+                          value={d.blocks[0]?.end_time ?? '18:00'}
+                          onChange={(e) => updateBlock(d.day_of_week, 0, 'end_time', e.target.value)}
+                          className="rounded-lg border border-[#333] bg-[#080808] text-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#DC2626]/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addBlock(d.day_of_week)}
+                          title="Agregar otro bloque horario"
+                          className="p-1 text-[#9CA3AF] hover:text-white transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                        {d.blocks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeBlock(d.day_of_week, d.blocks.length - 1)}
+                            title="Quitar último bloque"
+                            className="p-1 text-[#9CA3AF] hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {form.schedule.some((d) => d.is_active && d.blocks.length > 1) && (
+                <div className="pl-11 space-y-1.5">
+                  {form.schedule
+                    .filter((d) => d.is_active)
+                    .flatMap((d) =>
+                      d.blocks.slice(1).map((b, i) => (
+                        <div key={`${d.day_of_week}-${i + 1}`} className="flex items-center gap-1.5">
+                          <span className="text-xs text-[#9CA3AF] w-20">
+                            {DAYS.find((x) => x.value === d.day_of_week)?.label}
+                          </span>
+                          <input
+                            type="time"
+                            value={b.start_time}
+                            onChange={(e) => updateBlock(d.day_of_week, i + 1, 'start_time', e.target.value)}
+                            className="rounded-lg border border-[#333] bg-[#080808] text-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#DC2626]/50"
+                          />
+                          <span className="text-[#9CA3AF]">—</span>
+                          <input
+                            type="time"
+                            value={b.end_time}
+                            onChange={(e) => updateBlock(d.day_of_week, i + 1, 'end_time', e.target.value)}
+                            className="rounded-lg border border-[#333] bg-[#080808] text-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#DC2626]/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeBlock(d.day_of_week, i + 1)}
+                            className="p-1 text-[#9CA3AF] hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                </div>
+              )}
+              <p className="text-xs text-[#9CA3AF]">
+                Los días apagados no reciben turnos.
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
