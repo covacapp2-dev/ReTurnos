@@ -48,8 +48,8 @@ export default function DashboardPage() {
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Usuario';
 
   return (
-    <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex flex-col lg:h-[calc(100vh-7rem)] lg:overflow-hidden p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">
             {getTimeGreeting()}, {firstName}
@@ -75,15 +75,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 lg:grid-rows-3">
         {menuItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className="flex flex-col items-center justify-center gap-3 p-5 md:p-6 bg-[#1A1A1A] border border-[#333] rounded-xl hover:border-[#DC2626]/50 hover:bg-[#1A1A1A]/80 transition-all duration-200 group"
+            className="flex flex-col items-center justify-center gap-3 p-4 md:p-5 bg-[#1A1A1A] border border-[#333] rounded-xl hover:border-[#DC2626]/50 hover:bg-[#1A1A1A]/80 transition-all duration-200 group"
           >
-            <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#111827] border border-[#333] group-hover:border-[#DC2626]/30 transition-colors">
-              <item.icon size={28} className="text-[#DC2626]" />
+            <div className="flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-[#111827] border border-[#333] group-hover:border-[#DC2626]/30 transition-colors">
+              <item.icon size={24} className="text-[#DC2626]" />
             </div>
             <span className="text-sm font-medium text-white text-center leading-tight">
               {item.label}
