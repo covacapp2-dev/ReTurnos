@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   Package,
   ShoppingBag,
+  MapPin,
   Users,
   UserCircle,
   Clock,
@@ -29,7 +30,7 @@ interface NavItem {
   label: string;
 }
 
-const navItems: NavItem[] = [
+const generalNavItems: NavItem[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio' },
   { to: '/appointments/new', icon: CalendarPlus, label: 'Cargar reserva' },
   { to: '/agenda', icon: Calendar, label: 'Agenda' },
@@ -46,9 +47,30 @@ const navItems: NavItem[] = [
   { to: '/support', icon: HelpCircle, label: 'Soporte' },
 ];
 
+// Modo "Complejo deportivo": canchas en lugar de los rubros de turnos
+const sportsNavItems: NavItem[] = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio' },
+  { to: '/appointments/new', icon: CalendarPlus, label: 'Cargar reserva' },
+  { to: '/agenda', icon: Calendar, label: 'Agenda' },
+  { to: '/appointments', icon: CalendarCheck, label: 'Reservas' },
+  { to: '/sports', icon: MapPin, label: 'Canchas' },
+  { to: '/services', icon: Package, label: 'Servicios' },
+  { to: '/products', icon: ShoppingBag, label: 'Productos' },
+  { to: '/professionals', icon: Users, label: 'Profesionales' },
+  { to: '/clients', icon: UserCircle, label: 'Clientes' },
+  { to: '/horarios', icon: Clock, label: 'Horarios' },
+  { to: '/reports', icon: BarChart3, label: 'Reportes' },
+  { to: '/settings', icon: Settings, label: 'Configuración' },
+  { to: '/account', icon: User, label: 'Mi cuenta' },
+  { to: '/support', icon: HelpCircle, label: 'Soporte' },
+];
+
 export default function Sidebar() {
-  const { business } = useAuthStore();
+  const { business, user } = useAuthStore();
   const { sidebarCollapsed, toggleSidebarCollapsed, mobileMenuOpen, setMobileMenuOpen } = useUIStore();
+
+  const isSports = user?.user_metadata?.booking_mode === 'sports';
+  const navItems = isSports ? sportsNavItems : generalNavItems;
 
   const isCollapsed = sidebarCollapsed;
 

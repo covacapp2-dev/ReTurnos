@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -12,6 +12,7 @@ import {
   Check,
   AlertTriangle,
   Loader2,
+  MapPin,
 } from 'lucide-react';
 import {
   format,
@@ -72,7 +73,22 @@ export default function NewAppointmentPage() {
   const { business } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormData>(defaultForm);
+  const location = useLocation();
+  const preselectedCourt = useMemo(() => {
+    const state = (location.state ?? {}) as {
+      resourceId?: string;
+      resourceName?: string;
+      sport?: string;
+    };
+    return state.resourceId
+      ? { id: state.resourceId, name: state.resourceName ?? '', sport: state.sport ?? '' }
+      : null;
+  }, [location.state]);
+  const [courtName, setCourtName] = useState(preselectedCourt?.name ?? '');
+  const [form, setForm] = useState<FormData>(() => ({
+    ...defaultForm,
+    resourceId: preselectedCourt?.id ?? '',
+  }));
   const [customerSearch, setCustomerSearch] = useState('');
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [weekStart, setWeekStart] = useState(() =>
@@ -144,6 +160,7 @@ export default function NewAppointmentPage() {
       business?.id,
       form.serviceId,
       form.professionalId,
+      form.resourceId,
       format(form.date, 'yyyy-MM-dd'),
     ],
     queryFn: () =>
@@ -151,7 +168,8 @@ export default function NewAppointmentPage() {
         business!.id,
         form.serviceId,
         form.professionalId,
-        format(form.date, 'yyyy-MM-dd')
+        format(form.date, 'yyyy-MM-dd'),
+        form.resourceId || null
       ),
     enabled:
       !!business?.id &&
@@ -657,6 +675,23 @@ export default function NewAppointmentPage() {
           Volver
         </Button>
         <h1 className="text-2xl font-bold text-white">Nueva reserva</h1>
+        {form.resourceId && courtName && (
+          <span className="inline-flex items-center gap-2 bg-[#DC2626]/10 border border-[#DC2626]/40 text-[#DC2626] text-xs font-medium px-3 py-1.5 rounded-full">
+            <MapPin size={13} />
+            {courtName}
+            <button
+              type="button"
+              title="Quitar cancha"
+              onClick={() => {
+                setForm((prev) => ({ ...prev, resourceId: '' }));
+                setCourtName('');
+              }}
+              className="text-[#9CA3AF] hover:text-white leading-none"
+            >
+              ×
+            </button>
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1 overflow-x-auto pb-2">

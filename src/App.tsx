@@ -16,6 +16,7 @@ const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const NewSalePage = lazy(() => import('./pages/NewSalePage'));
 const SportsLobbyPage = lazy(() => import('./pages/SportsLobbyPage'));
+const CourtsPage = lazy(() => import('./pages/CourtsPage'));
 const ProfessionalsPage = lazy(() => import('./pages/ProfessionalsPage'));
 const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const BranchesPage = lazy(() => import('./pages/BranchesPage'));
@@ -95,6 +96,8 @@ export default function App() {
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/sales/new" element={<NewSalePage />} />
+            <Route path="/sports" element={<CourtsPage />} />
+            <Route path="/sports/:sport" element={<CourtsPage />} />
             <Route path="/professionals" element={<ProfessionalsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/branches" element={<BranchesPage />} />

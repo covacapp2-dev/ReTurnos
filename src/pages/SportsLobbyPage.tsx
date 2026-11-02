@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
+import { SPORTS } from '../constants/sports';
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -19,15 +20,6 @@ function getTimeGreeting(): string {
   if (hour < 19) return 'Buenas tardes';
   return 'Buenas noches';
 }
-
-const SPORTS = [
-  { emoji: '⚽', label: 'Fútbol', description: 'Canchas de fútbol 5, 7 y 11' },
-  { emoji: '🏓', label: 'Pádel', description: 'Canchas de pádel' },
-  { emoji: '🎾', label: 'Tenis', description: 'Canchas de tenis' },
-  { emoji: '🏐', label: 'Vóley', description: 'Canchas de vóley' },
-  { emoji: '🏀', label: 'Básquet', description: 'Canchas de básquet' },
-  { emoji: '🏑', label: 'Hockey', description: 'Canchas de hockey' },
-];
 
 const QUICK_LINKS = [
   { label: 'Agenda', icon: Calendar, path: '/agenda' },
@@ -73,7 +65,7 @@ export default function SportsLobbyPage() {
       <div className="shrink-0 mb-4">
         <h2 className="text-lg font-semibold text-white mb-1">Elegí un deporte</h2>
         <p className="text-sm text-[#9CA3AF]">
-          Tocá un deporte para cargar una reserva en sus canchas.
+          Tocá un deporte para ver sus canchas y cargar turnos.
         </p>
       </div>
 
@@ -81,7 +73,7 @@ export default function SportsLobbyPage() {
         {SPORTS.map((sport) => (
           <button
             key={sport.label}
-            onClick={() => navigate('/appointments/new')}
+            onClick={() => navigate(`/sports/${encodeURIComponent(sport.label)}`)}
             className="flex flex-col items-center justify-center gap-2 p-4 md:p-5 bg-[#1A1A1A] border border-[#333] rounded-xl hover:border-[#DC2626]/60 hover:bg-[#1A1A1A]/80 transition-all duration-200 text-center"
           >
             <div className="flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-[#111827] border border-[#333] text-2xl md:text-3xl">

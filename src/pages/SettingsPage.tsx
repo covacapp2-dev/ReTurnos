@@ -14,10 +14,14 @@ import {
   Check,
   Upload,
   Download,
+  LayoutGrid,
+  Goal,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../stores/authStore';
 import { updateBusiness } from '../services/business';
+import { setBookingMode } from '../services/auth';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -25,7 +29,14 @@ import Select from '../components/ui/Select';
 import Textarea from '../components/ui/Textarea';
 import Badge from '../components/ui/Badge';
 
-type SettingsTab = 'general' | 'reservas' | 'horarios' | 'notificaciones' | 'suscripcion' | 'link';
+type SettingsTab =
+  | 'general'
+  | 'reservas'
+  | 'horarios'
+  | 'notificaciones'
+  | 'suscripcion'
+  | 'link'
+  | 'tipo';
 
 const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
   { value: 'general', label: 'General', icon: Building2 },
@@ -34,6 +45,7 @@ const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
   { value: 'notificaciones', label: 'Notificaciones', icon: Bell },
   { value: 'suscripcion', label: 'Suscripción', icon: CreditCard },
   { value: 'link', label: 'Link público', icon: Link2 },
+  { value: 'tipo', label: 'Tipo de sistema', icon: LayoutGrid },
 ];
 
 const TIMEZONES = [
@@ -67,7 +79,7 @@ const DURATION_OPTIONS = [
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { business, setBusiness } = useAuth();
+  const { business, setBusiness, user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [copied, setCopied] = useState(false);
@@ -433,6 +445,88 @@ export default function SettingsPage() {
     );
   };
 
+  const bookingMode: 'general' | 'sports' =
+    (user?.user_metadata?.booking_mode as string | undefined) === 'sports' ? 'sports' : 'general';
+
+  const setModeMutation = useMutation({
+    mutationFn: (mode: 'general' | 'sports') => setBookingMode(mode),
+    onSuccess: ({ user: updatedUser, error }) => {
+      if (error) throw new Error(error.message);
+      if (updatedUser) useAuthStore.getState().setUser(updatedUser);
+      toast.success('Tipo de sistema actualizado');
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Error al cambiar el tipo de sistema'),
+  });
+
+  const renderTipoTab = () => {
+    const options: {
+      value: 'general' | 'sports';
+      label: string;
+      description: string;
+      icon: React.ElementType;
+    }[] = [
+      {
+        value: 'general',
+        label: 'Servicio de turnos en general',
+        description: 'Dashboard con servicios, profesionales y clientes de cualquier rubro.',
+        icon: CalendarDays,
+      },
+      {
+        value: 'sports',
+        label: 'Servicio de turnos complejo deportivo',
+        description: 'Lobby con deportes y canchas de fútbol, pádel, tenis, etc.',
+        icon: Goal,
+      },
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium text-white">¿Cómo querés usar ReTurnos?</p>
+          <p className="text-xs text-[#9CA3AF] mt-1">
+            Al cambiar, tu pantalla de inicio y el menú lateral se adaptan al modo elegido.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {options.map((opt) => {
+            const selected = bookingMode === opt.value;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  if (selected || setModeMutation.isPending) return;
+                  setModeMutation.mutate(opt.value);
+                }}
+                className={`text-left rounded-xl border p-4 transition-all ${
+                  selected
+                    ? 'border-[#DC2626] bg-[#DC2626]/10 ring-1 ring-[#DC2626]/40'
+                    : 'border-[#333] bg-[#111] hover:border-[#555]'
+                }`}
+              >
+                <Icon
+                  size={22}
+                  className={selected ? 'text-[#DC2626] mb-2' : 'text-[#9CA3AF] mb-2'}
+                />
+                <p className="text-sm font-semibold text-white">{opt.label}</p>
+                <p className="text-xs text-[#9CA3AF] mt-1 leading-snug">{opt.description}</p>
+                {selected && (
+                  <p className="text-[11px] text-[#DC2626] font-medium mt-2">Activo actualmente</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-xs text-[#9CA3AF]">
+          No se pierde nada: las reservas, clientes y productos se mantienen en ambos modos.
+        </p>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'general': return renderGeneralTab();
@@ -441,6 +535,7 @@ export default function SettingsPage() {
       case 'notificaciones': return renderNotificacionesTab();
       case 'suscripcion': return renderSuscripcionTab();
       case 'link': return renderLinkTab();
+      case 'tipo': return renderTipoTab();
     }
   };
 

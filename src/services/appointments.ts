@@ -287,7 +287,8 @@ export async function getAvailableSlots(
   businessId: string,
   serviceId: string,
   professionalId: string,
-  date: string
+  date: string,
+  resourceId?: string | null
 ): Promise<{ data: string[] | null; error: ServiceError | null }> {
   // Get service duration
   const { data: service, error: serviceError } = await supabase
@@ -331,6 +332,21 @@ export async function getAvailableSlots(
 
   if (apptError) return { data: null, error: { message: apptError.message } };
 
+  // Ocupaciones de la cancha/recurso (si se eligió una)
+  let resourceAppointments: { start_time: string; end_time: string }[] = [];
+  if (resourceId) {
+    const { data: resourceBusy, error: resError } = await supabase
+      .from('appointments')
+      .select('start_time,end_time')
+      .eq('resource_id', resourceId)
+      .not('status', 'in', '("cancelled","no_show")')
+      .gte('start_time', dayStart)
+      .lte('end_time', dayEnd);
+
+    if (resError) return { data: null, error: { message: resError.message } };
+    resourceAppointments = resourceBusy ?? [];
+  }
+
   // Get blocked dates for the day
   const { data: blocked } = await supabase
     .from('blocked_dates')
@@ -359,9 +375,13 @@ export async function getAvailableSlots(
       const slotEndISO = `${date}T${slotEnd}:00`;
 
       // Check if slot overlaps with existing appointments
-      const hasConflict = appointments?.some(
-        (appt) => appt.start_time < slotEndISO && appt.end_time > slotStartISO
-      );
+      const hasConflict =
+        appointments?.some(
+          (appt) => appt.start_time < slotEndISO && appt.end_time > slotStartISO
+        ) ||
+        resourceAppointments.some(
+          (appt) => appt.start_time < slotEndISO && appt.end_time > slotStartISO
+        );
 
       // Check if slot overlaps with blocked dates
       const isBlocked = blocked?.some(

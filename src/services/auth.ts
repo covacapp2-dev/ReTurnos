@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/types';
 
 interface AuthError {
@@ -67,6 +68,23 @@ export async function signIn(
 export async function signOut(): Promise<{ error: AuthError | null }> {
   const { error } = await supabase.auth.signOut();
   return { error: error ? { message: error.message } : null };
+}
+
+// Cambia el tipo de sistema de la cuenta: "general" | "sports"
+export async function setBookingMode(
+  mode: 'general' | 'sports'
+): Promise<{ user: User | null; error: AuthError | null }> {
+  const { error } = await supabase.auth.updateUser({
+    data: { booking_mode: mode },
+  });
+
+  if (error) return { user: null, error: { message: error.message } };
+
+  const {
+    data: { user: freshUser },
+  } = await supabase.auth.getUser();
+
+  return { user: freshUser, error: null };
 }
 
 export async function resetPassword(

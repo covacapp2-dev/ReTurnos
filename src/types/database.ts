@@ -133,6 +133,8 @@ export interface Resource {
   name: string;
   type: ResourceType;
   description: string | null;
+  /** Deporte de la cancha (modo complejo deportivo): fútbol, pádel, tenis... */
+  sport?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
