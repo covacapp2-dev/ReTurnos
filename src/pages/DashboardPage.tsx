@@ -17,6 +17,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../hooks/useAuth';
+import Button from '../components/ui/Button';
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -26,7 +27,6 @@ function getTimeGreeting(): string {
 }
 
 const menuItems = [
-  { label: 'Cargar reserva', icon: CalendarPlus, path: '/appointments/new' },
   { label: 'Agenda', icon: Calendar, path: '/agenda' },
   { label: 'Reservas', icon: CalendarCheck, path: '/appointments' },
   { label: 'Servicios', icon: Package, path: '/services' },
@@ -49,13 +49,30 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-white">
-          {getTimeGreeting()}, {firstName}
-        </h1>
-        <p className="text-[#9CA3AF] mt-1">
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">
+            {getTimeGreeting()}, {firstName}
+          </h1>
+          <p className="text-[#9CA3AF] mt-1">
+            {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            icon={<ShoppingBag size={18} />}
+            onClick={() => navigate('/sales/new')}
+          >
+            Cargar venta
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<CalendarPlus size={18} />}
+            onClick={() => navigate('/appointments/new')}
+          >
+            Cargar turno
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 md:gap-4">

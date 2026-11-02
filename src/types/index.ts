@@ -24,4 +24,6 @@ export type {
   Subscription,
   Notification,
   Product,
+  Sale,
+  SaleItem,
 } from './database';

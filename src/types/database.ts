@@ -261,3 +261,22 @@ export interface Product {
   created_at: string;
   updated_at: string;
 }
+
+export interface Sale {
+  id: string;
+  business_id: string;
+  total: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string | null;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  unit_cost: number;
+}
