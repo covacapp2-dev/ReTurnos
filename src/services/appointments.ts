@@ -318,8 +318,8 @@ export async function getAvailableSlots(
   }
 
   // Get all appointments for the day
-  const dayStart = format(targetDate, 'yyyy-MM-ddT00:00:00');
-  const dayEnd = format(targetDate, 'yyyy-MM-ddT23:59:59');
+  const dayStart = format(targetDate, "yyyy-MM-dd'T'00:00:00");
+  const dayEnd = format(targetDate, "yyyy-MM-dd'T'23:59:59");
 
   const { data: appointments, error: apptError } = await supabase
     .from('appointments')
