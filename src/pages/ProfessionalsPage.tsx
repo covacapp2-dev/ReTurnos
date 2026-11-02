@@ -482,12 +482,6 @@ export default function ProfessionalsPage() {
               placeholder="+54 11 1234-5678"
             />
           </div>
-          <Input
-            label="URL del avatar"
-            value={form.avatar_url}
-            onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
-            placeholder="https://..."
-          />
           <Textarea
             label="Bio"
             value={form.bio}
