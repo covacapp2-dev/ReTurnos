@@ -23,4 +23,5 @@ export type {
   BlockedDate,
   Subscription,
   Notification,
+  Product,
 } from './database';
