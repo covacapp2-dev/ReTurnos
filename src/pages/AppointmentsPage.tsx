@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import {
   CalendarCheck,
   Plus,
-  Eye,
   Pencil,
   XCircle,
   CheckCircle2,
@@ -261,12 +260,6 @@ export default function AppointmentsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<Eye size={15} />}
-                            onClick={() => navigate(`/reservas/${a.id}`)}
-                          />
                           {(a.status === 'pending' || a.status === 'confirmed') && (
                             <>
                               <Button
