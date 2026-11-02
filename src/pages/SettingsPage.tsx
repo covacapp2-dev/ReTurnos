@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -13,7 +13,9 @@ import {
   Copy,
   Check,
   Upload,
+  Download,
 } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../hooks/useAuth';
 import { updateBusiness } from '../services/business';
 import Card from '../components/ui/Card';
@@ -128,6 +130,27 @@ export default function SettingsPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error('Error al copiar');
+    }
+  };
+
+  const qrRef = useRef<HTMLCanvasElement>(null);
+
+  const handleDownloadQr = () => {
+    const canvas = qrRef.current;
+    if (!canvas) {
+      toast.error('No se pudo generar el QR');
+      return;
+    }
+    try {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `qr-${slug || business?.slug || 'turnos'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success('QR descargado');
+    } catch {
+      toast.error('Error al descargar el QR');
     }
   };
 
@@ -382,14 +405,29 @@ export default function SettingsPage() {
         </Card>
         <Card>
           <p className="text-sm font-medium text-white mb-3">Código QR</p>
-          <div className="w-40 h-40 bg-white rounded-lg flex items-center justify-center mx-auto">
-            <div className="text-center">
-              <div className="w-32 h-32 bg-[#333] rounded flex items-center justify-center">
-                <span className="text-xs text-[#9CA3AF]">QR Placeholder</span>
-              </div>
-            </div>
+          <div className="w-44 h-44 bg-white rounded-lg flex items-center justify-center mx-auto p-2">
+            <QRCodeCanvas
+              ref={qrRef}
+              value={publicUrl}
+              size={160}
+              level="M"
+              marginSize={1}
+              bgColor="#FFFFFF"
+              fgColor="#080808"
+              title="QR para reservar"
+            />
           </div>
           <p className="text-xs text-[#9CA3AF] text-center mt-2">Escaneá para reservar</p>
+          <div className="flex justify-center gap-2 mt-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Download size={14} />}
+              onClick={handleDownloadQr}
+            >
+              Descargar PNG
+            </Button>
+          </div>
         </Card>
       </div>
     );
