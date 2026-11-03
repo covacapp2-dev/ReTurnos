@@ -84,8 +84,17 @@ async function verifyMpSignature(req: Request, dataId: string): Promise<boolean>
 }
 
 async function handleMercadoPago(req: Request, url: URL): Promise<Response> {
-  const body = await req.json().catch(() => ({}));
-  const paymentId = body?.data?.id ?? url.searchParams.get('data.id');
+  const raw = await req.text();
+  let body: Record<string, unknown> = {};
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    // A veces llega como form-urlencoded
+    body = Object.fromEntries(new URLSearchParams(raw));
+  }
+
+  const data = body?.data as { id?: string | number } | undefined;
+  const paymentId = data?.id ?? url.searchParams.get('data.id');
 
   if (!paymentId) return json({ ok: true, msg: 'notificación sin pago' });
 
@@ -107,7 +116,13 @@ async function handleMercadoPago(req: Request, url: URL): Promise<Response> {
   if (!businessId) return json({ ok: true, msg: 'sin referencia' });
 
   if (payment.status === 'approved') {
-    await activateSubscription(businessId, 'mercadopago');
+    // Que no se active con un pago de menos de $15.000 ARS
+    const amount = Number(payment.transaction_amount ?? 0);
+    if (payment.currency_id === 'ARS' && amount >= 15000) {
+      await activateSubscription(businessId, 'mercadopago');
+    } else {
+      return json({ ok: true, msg: `importe inválido: ${amount}` });
+    }
   }
 
   return json({ ok: true });
@@ -137,13 +152,16 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const provider = url.searchParams.get('provider');
+    const typeParam = url.searchParams.get('type') ?? '';
 
-    // MercadoPago manda el tipo en el body o en la query (?type=payment)
+    // MercadoPago manda el tipo en la query (?type=payment) o en el body
     const bodyClone = await req.clone().json().catch(() => ({}));
+    const action = typeof bodyClone?.action === 'string' ? bodyClone.action : '';
     const looksLikeMp =
       provider === 'mercadopago' ||
+      typeParam.startsWith('payment') ||
       bodyClone?.type === 'payment' ||
-      bodyClone?.action?.startsWith('payment');
+      action.startsWith('payment');
 
     if (looksLikeMp) return await handleMercadoPago(req, url);
 

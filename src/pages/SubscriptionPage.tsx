@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
-import { createCheckoutUrl } from '../services/subscription';
+import { createCheckoutUrl, confirmPayment } from '../services/subscription';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -46,19 +46,36 @@ export default function SubscriptionPage() {
     if (!payment) return;
 
     if (payment === 'success') {
-      toast.success('Pago recibido. Tu suscripción se activa en unos segundos.', {
-        duration: 4000,
-      });
-      const timer = setTimeout(() => window.location.reload(), 3000);
-      return () => clearTimeout(timer);
+      // MercadoPago manda payment_id/collection_id, PayPal manda token
+      const paymentId =
+        searchParams.get('payment_id') ??
+        searchParams.get('collection_id') ??
+        searchParams.get('token');
+
+      toast.success('Pago recibido. Verificando tu suscripción…', { duration: 4000 });
+
+      (async () => {
+        if (paymentId) {
+          await confirmPayment(isArgentina ? 'mercadopago' : 'paypal', paymentId);
+        }
+        // Volvemos sin los parámetros para no repetir la confirmación
+        const clean = new URL(window.location.href);
+        ['payment', 'payment_id', 'collection_id', 'collection_status', 'token', 'PayerID', 'status'].forEach(
+          (k) => clean.searchParams.delete(k)
+        );
+        window.location.replace(clean.toString());
+      })();
+
+      return;
     }
+
     if (payment === 'fallo') toast.error('El pago no se completó. Podés intentarlo de nuevo.');
     if (payment === 'pendiente')
       toast('Pago en proceso. Te lo activamos cuando se acredite.', { duration: 5000 });
 
     searchParams.delete('payment');
     setSearchParams(searchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, isArgentina]);
 
   const checkoutMut = useMutation({
     mutationFn: () =>

@@ -23,11 +23,33 @@ correspondiente en **Configuración → Suscripción**.
 ```
 supabase/functions/create-checkout/index.ts   → crea el link de pago
 supabase/functions/payment-webhook/index.ts   → recibe los avisos y activa la suscripción
+supabase/functions/confirm-payment/index.ts   → respaldo: verifica el pago al volver de la pasarela
 src/services/subscription.ts                  → invocación desde React
 src/pages/SubscriptionPage.tsx                → botón y retorno del pago
 ```
 
-## Pasos para activar
+### ¿Cómo se activa la suscripción?
+
+Hay **dos caminos** (cualquiera de los dos sirve):
+
+1. **Webhook**: MercadoPago manda el aviso a la URL `notification_url` que ya va
+   dentro de cada preferencia de pago (`payment-webhook`), y PayPal a la URL que
+   registres en su panel. `payment-webhook` deja la suscripción activa 30 días.
+2. **Respaldo**: cuando el usuario vuelve a `/subscription?payment=success`,
+   el frontend llama a `confirm-payment`, que consulta el pago directamente a la
+   API del proveedor y lo activa. Sirve si el webhook no llega.
+
+Además `payment-webhook` valida que el pago sea `approved` y de **$15.000 ARS o más**
+antes de activar.
+
+## Estado actual
+
+- [x] Secretos de MercadoPago cargados (`MP_ACCESS_TOKEN`, `SITE_URL`)
+- [x] Funciones desplegadas: `create-checkout`, `payment-webhook`, `confirm-payment`
+- [ ] Probar un pago real desde Configuración → Suscripción
+- [ ] PayPal (falta client id/secret)
+
+## Pasos para activar (cuando quede PayPal / cambiar credenciales)
 
 ### 1. Sacar las credenciales
 
@@ -57,18 +79,21 @@ y para PayPal `PAYPAL_WEBHOOK_ID`.)
 
 ### 3. Desplegar las funciones
 
-Con la Supabase CLI instalada y logueada:
-
 ```bash
-npx supabase login
-npx supabase link --project-id rwlncdnzhgzovjldbczv
-npx supabase functions deploy create-checkout
-npx supabase functions deploy payment-webhook
+npx supabase secrets set --project-ref rwlncdnzhgzovjldbczv MP_ACCESS_TOKEN=...
+npx supabase functions deploy create-checkout payment-webhook confirm-payment \
+  --project-ref rwlncdnzhgzovjldbczv
 ```
+
+(`payment-webhook` se despliega con `--no-verify-jwt` para que el proveedor pueda avisar.)
 
 ### 4. Avisos de Mercado Pago (webhook)
 
-En el panel de Mercado Pago → tu aplicación → **Webhooks** → agregar:
+**No hace falta registrarlo a mano**: la URL del webhook ya viaja en cada preferencia
+de pago (`notification_url`), así que MercadoPago avisa solo.
+
+Si igual querés el webhook a nivel cuenta (para todos los pagos), agregalo en
+panel → tu aplicación → **Webhooks**:
 
 ```
 https://rwlncdnzhgzovjldbczv.supabase.co/functions/v1/payment-webhook?provider=mercadopago
@@ -86,11 +111,12 @@ PayPal Dashboard → tu app → **Webhooks** → agregar la misma URL
 
 1. Configuración → Suscripción → **Pagar con Mercado Pago** / **Pay with PayPal**
 2. Se abre la pasarela en otra pestaña
-3. Al pagar vuelve a `/subscription?payment=success`
-4. El webhook activa la suscripción → la página se recarga y muestra **Activo**
+3. Al pagar vuelve a `/subscription?payment=success&payment_id=...`
+4. El frontend llama a `confirm-payment` (y/o llega el webhook) → la suscripción
+   queda **Activa** por 30 días
 
-## Mientras no haya credenciales
+## Sin credenciales
 
-El botón muestra el mensaje:
+Si falta algún secreto, la Edge Function devuelve:
 *"Los pagos con Mercado Pago todavía no están configurados en el servidor."*
-(tal cual lo devuelve la Edge Function), sin romper nada.
+y el botón lo muestra, sin romper nada. **MercadoPago ya está configurado.**

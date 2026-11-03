@@ -21,6 +21,8 @@ const CORS = {
 };
 
 const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://re-turnos.vercel.app';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/payment-webhook`;
 
 const PRICE_ARS = 15000;
 const PRICE_USD = '10.00';
@@ -91,7 +93,7 @@ Deno.serve(async (req) => {
             },
           ],
           external_reference: business.id,
-          notification_url: `${SITE_URL}/functions/payment-webhook`,
+          notification_url: `${WEBHOOK_URL}?provider=mercadopago`,
           back_urls: {
             success: `${SITE_URL}/subscription?payment=success`,
             pending: `${SITE_URL}/subscription?payment=pendiente`,

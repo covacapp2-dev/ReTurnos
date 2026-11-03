@@ -34,3 +34,20 @@ export async function createCheckoutUrl(
     return { url: null, error: 'No se pudo conectar con el servidor de pagos' };
   }
 }
+
+// Respaldo: al volver de la pasarela, verifica el pago con el proveedor
+// y activa la suscripción (por si el webhook no llegó).
+export async function confirmPayment(
+  provider: PaymentProviderChoice,
+  paymentId: string
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('confirm-payment', {
+      body: { provider, payment_id: paymentId },
+    });
+    if (error) return false;
+    return Boolean((data as { ok?: boolean } | null)?.ok);
+  } catch {
+    return false;
+  }
+}
