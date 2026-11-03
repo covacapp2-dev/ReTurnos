@@ -15,7 +15,6 @@ import { createCheckoutUrl, confirmPayment, hasActiveAccess, detectIsArgentina, 
 import type { PaymentZone } from '../services/subscription';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Badge from '../components/ui/Badge';
 
 export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
@@ -156,29 +155,11 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
 
       {/* Subscription Plan Card */}
       <Card className="mb-6 border-[#DC2626]/30">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Suscripción mensual</h2>
-            <p className="text-sm text-[#9CA3AF] mt-1">
-              Acceso ilimitado a todas las funcionalidades
-            </p>
-          </div>
-          <Badge
-            variant={
-              hasActiveAccess(business)
-                ? business?.subscription_status === 'active'
-                  ? 'success'
-                  : 'warning'
-                : 'danger'
-            }
-            dot
-          >
-            {hasActiveAccess(business)
-              ? business?.subscription_status === 'active'
-                ? 'Activo'
-                : 'Prueba'
-              : 'Vencido'}
-          </Badge>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-white">Suscripción mensual</h2>
+          <p className="text-sm text-[#9CA3AF] mt-1">
+            Acceso ilimitado a todas las funcionalidades
+          </p>
         </div>
 
         <div className="flex items-baseline gap-2 mb-4">
