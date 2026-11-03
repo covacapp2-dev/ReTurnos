@@ -29,6 +29,7 @@ export type SubscriptionStatus =
 export type PaymentProvider =
   | 'stripe'
   | 'mercadopago'
+  | 'paypal'
   | 'cash'
   | 'other';
 

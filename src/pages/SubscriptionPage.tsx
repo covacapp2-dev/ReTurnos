@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
+import { createCheckoutUrl } from '../services/subscription';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -35,7 +37,41 @@ const PAYMENT_HISTORY = [
 export default function SubscriptionPage() {
   const navigate = useNavigate();
   const { business } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isArgentina = useMemo(() => detectIsArgentina(), []);
+
+  // Volvimos del proveedor de pago
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    if (!payment) return;
+
+    if (payment === 'success') {
+      toast.success('Pago recibido. Tu suscripción se activa en unos segundos.', {
+        duration: 4000,
+      });
+      const timer = setTimeout(() => window.location.reload(), 3000);
+      return () => clearTimeout(timer);
+    }
+    if (payment === 'fallo') toast.error('El pago no se completó. Podés intentarlo de nuevo.');
+    if (payment === 'pendiente')
+      toast('Pago en proceso. Te lo activamos cuando se acredite.', { duration: 5000 });
+
+    searchParams.delete('payment');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const checkoutMut = useMutation({
+    mutationFn: () =>
+      createCheckoutUrl(isArgentina ? 'mercadopago' : 'paypal', business!.id),
+    onSuccess: ({ url, error }) => {
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (url) window.location.href = url;
+    },
+    onError: () => toast.error('No se pudo iniciar el pago. Probá más tarde.'),
+  });
 
   const trialDaysLeft = useMemo(() => {
     if (!business?.trial_ends_at) return 0;
@@ -99,17 +135,18 @@ export default function SubscriptionPage() {
         <Button
           size="lg"
           className="w-full sm:w-auto"
-          onClick={() => {
-            if (isArgentina) {
-              toast('Redirigiendo a Mercado Pago...');
-            } else {
-              toast('Redirecting to PayPal...');
-            }
-          }}
+          disabled={!business}
+          loading={checkoutMut.isPending}
+          onClick={() => checkoutMut.mutate()}
           icon={<CreditCard size={18} />}
         >
           {isArgentina ? 'Pagar con Mercado Pago' : 'Pay with PayPal'}
         </Button>
+        <p className="text-xs text-[#9CA3AF] mt-3">
+          {isArgentina
+            ? 'Se abre Mercado Pago en una pestaña nueva para pagar $15.000 ARS.'
+            : 'Opens PayPal in a new tab to pay US$ 10.'}
+        </p>
       </Card>
 
       {/* Trial Info */}
