@@ -16,11 +16,13 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { signOut } from '../../services/auth';
+import { isAdminEmail } from '../../services/admin';
 
 interface NavItem {
   to: string;
@@ -62,7 +64,11 @@ export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebarCollapsed, mobileMenuOpen, setMobileMenuOpen } = useUIStore();
 
   const isSports = user?.user_metadata?.booking_mode === 'sports';
-  const navItems = isSports ? sportsNavItems : generalNavItems;
+  const baseItems = isSports ? sportsNavItems : generalNavItems;
+  // El botón "Admin" solo aparece para la cuenta administradora
+  const navItems: NavItem[] = isAdminEmail(user?.email)
+    ? [...baseItems, { to: '/admin', icon: ShieldCheck, label: 'Admin' }]
+    : baseItems;
 
   const isCollapsed = sidebarCollapsed;
 

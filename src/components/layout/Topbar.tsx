@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Bell, Search, LogOut, User, ChevronDown } from 'lucide-react';
+import { Menu, Search, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { signOut } from '../../services/auth';
 import Avatar from '../ui/Avatar';
+import NotificationsBell from '../NotificationsBell';
 
 export default function Topbar() {
   const { user, profile, business } = useAuthStore();
@@ -60,10 +61,7 @@ export default function Topbar() {
           </span>
         )}
 
-        <button className="relative p-2 rounded-lg text-[#9CA3AF] hover:bg-[#1A1A1A] hover:text-white transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#DC2626]" />
-        </button>
+        <NotificationsBell />
 
         <div className="relative" ref={dropdownRef}>
           <button

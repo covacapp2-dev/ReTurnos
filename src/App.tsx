@@ -30,6 +30,7 @@ const SubscriptionPage = lazy(() => import('./pages/SubscriptionPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 const PublicBookingPage = lazy(() => import('./pages/public/PublicBookingPage'));
 const PublicBookingSuccessPage = lazy(() => import('./pages/public/PublicBookingSuccessPage'));
 
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="/account" element={<AccountPage />} />
             <Route path="/subscription" element={<SubscriptionPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Route>
 
