@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
@@ -11,27 +11,26 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
-import { createCheckoutUrl, confirmPayment, hasActiveAccess } from '../services/subscription';
+import { createCheckoutUrl, confirmPayment, hasActiveAccess, detectIsArgentina, getStoredZone, storeZone } from '../services/subscription';
+import type { PaymentZone } from '../services/subscription';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-
-function detectIsArgentina(): boolean {
-  try {
-    const lang = navigator.language;
-    if (lang.includes('es-AR') || lang.includes('es-AR')) return true;
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz === 'America/Argentina/Buenos_Aires' || tz === 'America/Cordoba' || tz === 'America/Argentina/Salta';
-  } catch {
-    return false;
-  }
-}
 
 export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const { business } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isArgentina = useMemo(() => detectIsArgentina(), []);
+
+  const [zoneOverride, setZoneOverride] = useState<PaymentZone | null>(() => getStoredZone());
+
+  const detectedAr = useMemo(() => detectIsArgentina(business), [business]);
+  const isArgentina = zoneOverride ? zoneOverride === 'ar' : detectedAr;
+
+  const chooseZone = (zone: PaymentZone) => {
+    setZoneOverride(zone);
+    storeZone(zone);
+  };
 
   // Volvimos del proveedor de pago
   useEffect(() => {
@@ -130,15 +129,38 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         </div>
       )}
 
+      {/* Zona de cobro */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-[#9CA3AF] mr-1">Cobro en:</span>
+        <button
+          onClick={() => chooseZone('ar')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            isArgentina
+              ? 'bg-[#DC2626] border-[#DC2626] text-white'
+              : 'bg-[#1A1A1A] border-[#333] text-[#9CA3AF] hover:text-white'
+          }`}
+        >
+          🇦🇷 Argentina · Mercado Pago
+        </button>
+        <button
+          onClick={() => chooseZone('intl')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            !isArgentina
+              ? 'bg-[#DC2626] border-[#DC2626] text-white'
+              : 'bg-[#1A1A1A] border-[#333] text-[#9CA3AF] hover:text-white'
+          }`}
+        >
+          🌍 Resto del mundo · PayPal
+        </button>
+      </div>
+
       {/* Subscription Plan Card */}
       <Card className="mb-6 border-[#DC2626]/30">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">
-              {isArgentina ? 'Suscripción mensual' : 'International subscription'}
-            </h2>
+            <h2 className="text-lg font-semibold text-white">Suscripción mensual</h2>
             <p className="text-sm text-[#9CA3AF] mt-1">
-              {isArgentina ? 'Acceso ilimitado a todas las funcionalidades' : 'Unlimited access to all features'}
+              Acceso ilimitado a todas las funcionalidades
             </p>
           </div>
           <Badge
@@ -164,13 +186,13 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
             {isArgentina ? '$15.000' : 'US$10'}
           </span>
           <span className="text-sm text-[#9CA3AF]">
-            {isArgentina ? 'ARS / mes' : '/ month'}
+            {isArgentina ? 'ARS / mes' : '/ mes'}
           </span>
         </div>
 
         <div className="bg-[#080808] border border-[#333] rounded-lg p-3 mb-4">
           <p className="text-sm text-emerald-400 font-medium">
-            {isArgentina ? '🎁 3 meses gratis al suscribirte' : '🎁 3 months free when you subscribe'}
+            🎁 3 meses gratis al suscribirte
           </p>
         </div>
 
@@ -182,12 +204,12 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
           onClick={() => checkoutMut.mutate()}
           icon={<CreditCard size={18} />}
         >
-          {isArgentina ? 'Pagar con Mercado Pago' : 'Pay with PayPal'}
+          {isArgentina ? 'Pagar con Mercado Pago' : 'Pagar con PayPal'}
         </Button>
         <p className="text-xs text-[#9CA3AF] mt-3">
           {isArgentina
             ? 'Se abre Mercado Pago en una pestaña nueva para pagar $15.000 ARS.'
-            : 'Opens PayPal in a new tab to pay US$ 10.'}
+            : 'Se abre PayPal en una pestaña nueva para pagar US$ 10.'}
         </p>
       </Card>
 

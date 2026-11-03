@@ -1,6 +1,7 @@
 import { Lock, CreditCard, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { detectIsArgentina, getStoredZone } from '../services/subscription';
 import Button from './ui/Button';
 
 // Pantalla de bloqueo: se muestra cuando la suscripción venció o está impaga.
@@ -9,14 +10,8 @@ export default function SubscriptionBlocked() {
   const navigate = useNavigate();
   const { business, logout } = useAuthStore();
 
-  const isArgentina = (() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return tz.startsWith('America/Argentina') || navigator.language.includes('es-AR');
-    } catch {
-      return false;
-    }
-  })();
+  const zone = getStoredZone();
+  const isArgentina = zone ? zone === 'ar' : detectIsArgentina(business);
 
   const expired = business?.subscription_status === 'trial';
 

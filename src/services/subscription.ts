@@ -23,6 +23,43 @@ export function hasActiveAccess(business: Business | null | undefined): boolean 
   return false;
 }
 
+// --- Zona de cobro: Argentina (MercadoPago) o resto del mundo (PayPal) ---
+
+export const PAYMENT_ZONE_KEY = 'retornos_payment_zone';
+export type PaymentZone = 'ar' | 'intl';
+
+export function detectIsArgentina(business?: { currency?: string } | null): boolean {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+    if (tz.startsWith('America/Argentina')) return true;
+
+    const lang = (navigator.language ?? '').toLowerCase();
+    if (lang === 'es-ar' || lang.startsWith('es-ar')) return true;
+  } catch {
+    /* sin detección */
+  }
+
+  // Si la moneda del negocio es ARS → se cobra en pesos
+  return business?.currency === 'ARS';
+}
+
+export function getStoredZone(): PaymentZone | null {
+  try {
+    const v = localStorage.getItem(PAYMENT_ZONE_KEY);
+    return v === 'ar' || v === 'intl' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeZone(zone: PaymentZone): void {
+  try {
+    localStorage.setItem(PAYMENT_ZONE_KEY, zone);
+  } catch {
+    /* sin storage */
+  }
+}
+
 // Crea el link de pago mensual en la Edge Function y devuelve la URL
 export async function createCheckoutUrl(
   provider: PaymentProviderChoice,
