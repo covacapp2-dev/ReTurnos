@@ -6,13 +6,12 @@ import { es } from 'date-fns/locale';
 import {
   CreditCard,
   Clock,
-  AlertTriangle,
-  ExternalLink,
+  Lock,
   ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
-import { createCheckoutUrl, confirmPayment } from '../services/subscription';
+import { createCheckoutUrl, confirmPayment, hasActiveAccess } from '../services/subscription';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -28,13 +27,7 @@ function detectIsArgentina(): boolean {
   }
 }
 
-const PAYMENT_HISTORY = [
-  { date: '2026-08-01', amount: 15000, status: 'paid', method: 'Mercado Pago' },
-  { date: '2026-07-01', amount: 15000, status: 'paid', method: 'Mercado Pago' },
-  { date: '2026-06-01', amount: 0, status: 'free', method: 'Trial' },
-];
-
-export default function SubscriptionPage() {
+export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const { business } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,16 +100,35 @@ export default function SubscriptionPage() {
   }, [business?.trial_started_at, business?.trial_ends_at]);
 
   return (
-    <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate('/settings')}
-        className="flex items-center gap-2 text-[#9CA3AF] hover:text-white text-sm mb-6 transition-colors"
-      >
-        <ArrowLeft size={16} />
-        Volver a configuración
-      </button>
+    <div
+      className={
+        embedded ? '' : 'min-h-screen bg-[#080808] p-4 md:p-6 max-w-4xl mx-auto'
+      }
+    >
+      {!embedded && (
+        <button
+          onClick={() => navigate('/settings')}
+          className="flex items-center gap-2 text-[#9CA3AF] hover:text-white text-sm mb-6 transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Volver a configuración
+        </button>
+      )}
 
       <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Suscripción</h1>
+
+      {/* Aviso de bloqueo */}
+      {!hasActiveAccess(business) && (
+        <div className="mb-6 flex items-start gap-3 bg-[#DC2626]/10 border border-[#DC2626]/40 rounded-lg p-4">
+          <Lock size={18} className="text-[#DC2626] mt-0.5 shrink-0" />
+          <p className="text-sm text-white">
+            <span className="font-semibold">El acceso está pausado.</span>{' '}
+            <span className="text-[#9CA3AF]">
+              Hacé el pago y la suscripción se activa al instante.
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Subscription Plan Card */}
       <Card className="mb-6 border-[#DC2626]/30">
@@ -129,8 +141,21 @@ export default function SubscriptionPage() {
               {isArgentina ? 'Acceso ilimitado a todas las funcionalidades' : 'Unlimited access to all features'}
             </p>
           </div>
-          <Badge variant={business?.subscription_status === 'active' ? 'success' : business?.subscription_status === 'trial' ? 'warning' : 'danger'} dot>
-            {business?.subscription_status === 'active' ? 'Activo' : business?.subscription_status === 'trial' ? 'Prueba' : 'Inactivo'}
+          <Badge
+            variant={
+              hasActiveAccess(business)
+                ? business?.subscription_status === 'active'
+                  ? 'success'
+                  : 'warning'
+                : 'danger'
+            }
+            dot
+          >
+            {hasActiveAccess(business)
+              ? business?.subscription_status === 'active'
+                ? 'Activo'
+                : 'Prueba'
+              : 'Vencido'}
           </Badge>
         </div>
 
@@ -208,63 +233,32 @@ export default function SubscriptionPage() {
         </Card>
       )}
 
-      {/* Payment History */}
-      <Card className="mb-6">
-        <h3 className="text-sm font-semibold text-white mb-4">Historial de pagos</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#333]">
-                <th className="text-left px-4 py-2 font-medium text-[#9CA3AF]">Fecha</th>
-                <th className="text-left px-4 py-2 font-medium text-[#9CA3AF]">Monto</th>
-                <th className="text-left px-4 py-2 font-medium text-[#9CA3AF]">Estado</th>
-                <th className="text-left px-4 py-2 font-medium text-[#9CA3AF]">Método</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PAYMENT_HISTORY.map((payment, i) => (
-                <tr key={i} className="border-b border-[#333]/50 last:border-0">
-                  <td className="px-4 py-3 text-white">
-                    {format(new Date(payment.date), 'dd/MM/yyyy')}
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {payment.amount === 0
-                      ? 'Gratis'
-                      : `$${payment.amount.toLocaleString('es-AR')}`}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant={payment.status === 'paid' ? 'success' : 'info'}
-                      dot
-                    >
-                      {payment.status === 'paid' ? 'Pagado' : 'Trial'}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-[#9CA3AF]">{payment.method}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Cómo funciona el cobro */}
+      <Card>
+        <h3 className="text-sm font-semibold text-white mb-3">Cómo funciona el cobro</h3>
+        <ul className="space-y-2 text-sm text-[#9CA3AF]">
+          <li className="flex gap-2">
+            <span className="text-[#DC2626]">•</span>
+            <span>
+              Los primeros <span className="text-white font-medium">3 meses son gratis</span>.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-[#DC2626]">•</span>
+            <span>
+              Después se paga mes a mes: {isArgentina ? '$15.000 ARS' : 'US$10'}.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-[#DC2626]">•</span>
+            <span>Al pagar, la suscripción se activa al instante y dura 30 días.</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-[#DC2626]">•</span>
+            <span>Si vence, el acceso queda pausado hasta regularizar el pago.</span>
+          </li>
+        </ul>
       </Card>
-
-      {/* Cancel */}
-      {business?.subscription_status !== 'cancelled' && (
-        <Card className="border-red-500/30">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={20} className="text-red-400 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">Cancelar suscripción</h3>
-              <p className="text-xs text-[#9CA3AF] mb-3">
-                Si cancelás, tu cuenta seguirá activa hasta el final del período facturado.
-              </p>
-              <Button variant="danger" size="sm">
-                Cancelar suscripción
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

@@ -102,6 +102,9 @@ export default function OnboardingPage() {
     mutationFn: async () => {
       const slug = slugify(businessName);
 
+      const trialEnds = new Date();
+      trialEnds.setMonth(trialEnds.getMonth() + 3); // 3 meses gratis
+
       const bizRes = await createBusiness({
         owner_id: user?.id ?? '',
         name: businessName,
@@ -116,7 +119,7 @@ export default function OnboardingPage() {
         business_type: category,
         subscription_status: 'trial',
         trial_started_at: new Date().toISOString(),
-        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: trialEnds.toISOString(),
         subscription_started_at: null,
         subscription_ends_at: null,
       });

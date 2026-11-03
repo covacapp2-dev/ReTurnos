@@ -1,8 +1,10 @@
 import { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useParams, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import BusinessBootstrap from './components/BusinessBootstrap';
+import SubscriptionBlocked from './components/SubscriptionBlocked';
+import { hasActiveAccess } from './services/subscription';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
@@ -45,6 +47,7 @@ function LoadingFallback() {
 
 function ProtectedRoute({ requireBusiness = true }: { requireBusiness?: boolean }) {
   const { user, business, loading } = useAuthStore();
+  const location = useLocation();
 
   if (loading) {
     return <LoadingFallback />;
@@ -56,6 +59,16 @@ function ProtectedRoute({ requireBusiness = true }: { requireBusiness?: boolean 
 
   if (requireBusiness && !business) {
     return <BusinessBootstrap />;
+  }
+
+  // Suscripción vencida o impaga → se bloquea el acceso,
+  // salvo para pagar (o ver configuración).
+  if (requireBusiness && business && !hasActiveAccess(business)) {
+    const path = location.pathname;
+    const canPay = path.startsWith('/subscription') || path.startsWith('/settings');
+    if (!canPay) {
+      return <SubscriptionBlocked />;
+    }
   }
 
   return <Outlet />;

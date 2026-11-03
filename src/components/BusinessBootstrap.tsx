@@ -33,6 +33,8 @@ export default function BusinessBootstrap() {
 
         // 2) Lo crea con un nombre genérico (se puede cambiar en Configuración)
         const slug = `negocio-${Date.now().toString(36)}`;
+        const trialEnds = new Date();
+        trialEnds.setMonth(trialEnds.getMonth() + 3); // 3 meses gratis
         const res = await createBusiness({
           owner_id: user.id,
           name: 'Mi negocio',
@@ -47,7 +49,7 @@ export default function BusinessBootstrap() {
           business_type: null,
           subscription_status: 'trial',
           trial_started_at: new Date().toISOString(),
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: trialEnds.toISOString(),
           subscription_started_at: null,
           subscription_ends_at: null,
         });

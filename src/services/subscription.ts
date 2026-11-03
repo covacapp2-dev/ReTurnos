@@ -1,6 +1,27 @@
 import { supabase } from '@/lib/supabase';
+import type { Business } from '../types/database';
 
 export type PaymentProviderChoice = 'mercadopago' | 'paypal';
+
+// ¿Puede usar la app? Suscripción activa o prueba vigente.
+// Si no, se bloquea el acceso y se lo manda a pagar.
+export function hasActiveAccess(business: Business | null | undefined): boolean {
+  if (!business) return false;
+  const now = Date.now();
+
+  if (business.subscription_status === 'active') {
+    if (!business.subscription_ends_at) return true;
+    return new Date(business.subscription_ends_at).getTime() > now;
+  }
+
+  if (business.subscription_status === 'trial') {
+    if (!business.trial_ends_at) return true;
+    return new Date(business.trial_ends_at).getTime() > now;
+  }
+
+  // past_due / cancelled / expired
+  return false;
+}
 
 // Crea el link de pago mensual en la Edge Function y devuelve la URL
 export async function createCheckoutUrl(

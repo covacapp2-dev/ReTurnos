@@ -26,6 +26,7 @@ import { updateBusiness } from '../services/business';
 import { setBookingMode } from '../services/auth';
 import AccountPage from './AccountPage';
 import SupportPage from './SupportPage';
+import SubscriptionPage from './SubscriptionPage';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -321,37 +322,6 @@ export default function SettingsPage() {
     </div>
   );
 
-  const renderSuscripcionTab = () => (
-    <div className="space-y-4">
-      <Card className="border-[#DC2626]/30">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-white">Plan actual</h3>
-          <Badge variant={business?.subscription_status === 'active' ? 'success' : 'warning'} dot>
-            {business?.subscription_status === 'active' ? 'Activo' : 'Prueba'}
-          </Badge>
-        </div>
-        <p className="text-2xl font-bold text-[#DC2626] mb-1">
-          {business?.subscription_status === 'trial' ? 'Plan de prueba' : 'Plan Pro'}
-        </p>
-        {business?.trial_ends_at && (
-          <p className="text-sm text-[#9CA3AF]">
-            Trial hasta: {new Date(business.trial_ends_at).toLocaleDateString('es-AR')}
-          </p>
-        )}
-        {business?.subscription_started_at && (
-          <p className="text-sm text-[#9CA3AF]">
-            Inicio: {new Date(business.subscription_started_at).toLocaleDateString('es-AR')}
-          </p>
-        )}
-      </Card>
-      <div className="flex justify-end pt-2">
-        <Button variant="outline" onClick={() => navigate('/subscription')} icon={<ExternalLink size={16} />}>
-          Gestionar suscripción
-        </Button>
-      </div>
-    </div>
-  );
-
   const saveSlugMutation = useMutation({
     mutationFn: async () => {
       const res = await updateBusiness(business!.id, { slug: slug.trim().toLowerCase() });
@@ -541,7 +511,7 @@ export default function SettingsPage() {
       case 'reservas': return renderReservasTab();
       case 'horarios': return renderHorariosTab();
       case 'notificaciones': return renderNotificacionesTab();
-      case 'suscripcion': return renderSuscripcionTab();
+      case 'suscripcion': return <SubscriptionPage embedded />;
       case 'link': return renderLinkTab();
       case 'tipo': return renderTipoTab();
       case 'cuenta': return <AccountPage embedded />;
@@ -549,7 +519,8 @@ export default function SettingsPage() {
     }
   };
 
-  const isFullWidthTab = activeTab === 'cuenta' || activeTab === 'soporte';
+  const isFullWidthTab =
+    activeTab === 'cuenta' || activeTab === 'soporte' || activeTab === 'suscripcion';
 
   return (
     <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-5xl mx-auto">
