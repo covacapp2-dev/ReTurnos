@@ -56,8 +56,6 @@ const sportsNavItems: NavItem[] = [
   { to: '/sports', icon: MapPin, label: 'Canchas' },
   { to: '/services', icon: Package, label: 'Servicios' },
   { to: '/products', icon: ShoppingBag, label: 'Productos' },
-  { to: '/professionals', icon: Users, label: 'Profesionales' },
-  { to: '/clients', icon: UserCircle, label: 'Clientes' },
   { to: '/horarios', icon: Clock, label: 'Horarios' },
   { to: '/reports', icon: BarChart3, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
