@@ -52,6 +52,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             .single();
 
           setBusiness(business ?? null);
+        } else {
+          // Fallback: negocio propio sin fila de membresía todavía
+          const { data: ownedBusiness } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('owner_id', userId)
+            .maybeSingle();
+
+          setBusiness(ownedBusiness ?? null);
         }
       }
     }
