@@ -14,7 +14,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 
-export default function AccountPage() {
+export default function AccountPage({ embedded = false }: { embedded?: boolean }) {
   const { profile, user } = useAuth();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -62,8 +62,14 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Mi cuenta</h1>
+    <div
+      className={
+        embedded ? '' : 'min-h-screen bg-[#080808] p-4 md:p-6 max-w-2xl mx-auto'
+      }
+    >
+      {!embedded && (
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Mi cuenta</h1>
+      )}
 
       {/* Profile Photo */}
       <Card className="mb-4">

@@ -16,12 +16,16 @@ import {
   Download,
   LayoutGrid,
   Goal,
+  User,
+  HelpCircle,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../stores/authStore';
 import { updateBusiness } from '../services/business';
 import { setBookingMode } from '../services/auth';
+import AccountPage from './AccountPage';
+import SupportPage from './SupportPage';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -36,7 +40,9 @@ type SettingsTab =
   | 'notificaciones'
   | 'suscripcion'
   | 'link'
-  | 'tipo';
+  | 'tipo'
+  | 'cuenta'
+  | 'soporte';
 
 const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
   { value: 'general', label: 'General', icon: Building2 },
@@ -46,6 +52,8 @@ const TABS: { value: SettingsTab; label: string; icon: React.ElementType }[] = [
   { value: 'suscripcion', label: 'Suscripción', icon: CreditCard },
   { value: 'link', label: 'Link público', icon: Link2 },
   { value: 'tipo', label: 'Tipo de sistema', icon: LayoutGrid },
+  { value: 'cuenta', label: 'Mi cuenta', icon: User },
+  { value: 'soporte', label: 'Soporte', icon: HelpCircle },
 ];
 
 const TIMEZONES = [
@@ -536,8 +544,12 @@ export default function SettingsPage() {
       case 'suscripcion': return renderSuscripcionTab();
       case 'link': return renderLinkTab();
       case 'tipo': return renderTipoTab();
+      case 'cuenta': return <AccountPage embedded />;
+      case 'soporte': return <SupportPage embedded />;
     }
   };
+
+  const isFullWidthTab = activeTab === 'cuenta' || activeTab === 'soporte';
 
   return (
     <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-5xl mx-auto">
@@ -570,8 +582,8 @@ export default function SettingsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
-          <Card>{renderContent()}</Card>
+        <div className="flex-1 min-w-0">
+          {isFullWidthTab ? renderContent() : <Card>{renderContent()}</Card>}
         </div>
       </div>
     </div>

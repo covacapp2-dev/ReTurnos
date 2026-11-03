@@ -77,7 +77,7 @@ function FaqItem({
   );
 }
 
-export default function SupportPage() {
+export default function SupportPage({ embedded = false }: { embedded?: boolean }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -97,8 +97,14 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] p-4 md:p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Centro de ayuda</h1>
+    <div
+      className={
+        embedded ? '' : 'min-h-screen bg-[#080808] p-4 md:p-6 max-w-2xl mx-auto'
+      }
+    >
+      {!embedded && (
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Centro de ayuda</h1>
+      )}
       <p className="text-sm text-[#9CA3AF] mb-6">Encontrá respuestas a las preguntas más frecuentes</p>
 
       {/* FAQ Section */}

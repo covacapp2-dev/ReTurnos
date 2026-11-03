@@ -13,8 +13,6 @@ import {
   Building2,
   BarChart3,
   Settings,
-  User,
-  HelpCircle,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -43,8 +41,6 @@ const generalNavItems: NavItem[] = [
   { to: '/branches', icon: Building2, label: 'Sucursales' },
   { to: '/reports', icon: BarChart3, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
-  { to: '/account', icon: User, label: 'Mi cuenta' },
-  { to: '/support', icon: HelpCircle, label: 'Soporte' },
 ];
 
 // Modo "Complejo deportivo": canchas en lugar de los rubros de turnos
@@ -59,8 +55,6 @@ const sportsNavItems: NavItem[] = [
   { to: '/horarios', icon: Clock, label: 'Horarios' },
   { to: '/reports', icon: BarChart3, label: 'Reportes' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
-  { to: '/account', icon: User, label: 'Mi cuenta' },
-  { to: '/support', icon: HelpCircle, label: 'Soporte' },
 ];
 
 export default function Sidebar() {
