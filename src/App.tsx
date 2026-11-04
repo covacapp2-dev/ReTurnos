@@ -5,6 +5,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 import BusinessBootstrap from './components/BusinessBootstrap';
 import SubscriptionBlocked from './components/SubscriptionBlocked';
 import { hasActiveAccess } from './services/subscription';
+import { currentBookingMode, getModeSub } from './services/modeSubscriptions';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
@@ -47,7 +48,7 @@ function LoadingFallback() {
 }
 
 function ProtectedRoute({ requireBusiness = true }: { requireBusiness?: boolean }) {
-  const { user, business, loading } = useAuthStore();
+  const { user, business, modeSubs, loading } = useAuthStore();
   const location = useLocation();
 
   if (loading) {
@@ -62,13 +63,16 @@ function ProtectedRoute({ requireBusiness = true }: { requireBusiness?: boolean 
     return <BusinessBootstrap />;
   }
 
-  // Suscripción vencida o impaga → se bloquea el acceso,
-  // salvo para pagar (o ver configuración).
-  if (requireBusiness && business && !hasActiveAccess(business)) {
+  // Cada sistema tiene su propia suscripción: si el que está usando
+  // está vencido o bloqueado, se corta el acceso (salvo para pagar).
+  const bookingMode = currentBookingMode(user);
+  const modeSub = getModeSub(modeSubs, bookingMode);
+
+  if (requireBusiness && business && !hasActiveAccess(business, bookingMode, modeSub)) {
     const path = location.pathname;
     const canPay = path.startsWith('/subscription') || path.startsWith('/settings');
     if (!canPay) {
-      return <SubscriptionBlocked />;
+      return <SubscriptionBlocked mode={bookingMode} sub={modeSub} />;
     }
   }
 

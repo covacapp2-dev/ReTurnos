@@ -53,8 +53,13 @@ Deno.serve(async (req) => {
     if (authError || !authData?.user) return json({ error: 'No autorizado' }, 401);
     const user = authData.user;
 
-    const { provider, business_id } = await req.json();
+    const { provider, business_id, mode } = await req.json();
     if (!provider || !business_id) return json({ error: 'Faltan datos' }, 400);
+
+    // Sistema que se está pagando: general | sports
+    const payMode: string = mode === 'sports' ? 'sports' : 'general';
+    // external_reference: "id-del-negocio|sistema"
+    const externalReference = `${business_id}|${payMode}`;
 
     const { data: business } = await supabaseAdmin
       .from('businesses')
@@ -85,14 +90,17 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           items: [
             {
-              id: 'retornos-suscripcion-mensual',
-              title: 'ReTurnos - Suscripción mensual',
+              id: `retornos-suscripcion-mensual-${payMode}`,
+              title:
+                payMode === 'sports'
+                  ? 'ReTurnos - Suscripción mensual (Complejo deportivo)'
+                  : 'ReTurnos - Suscripción mensual (Turnos en general)',
               quantity: 1,
               unit_price: PRICE_ARS,
               currency_id: 'ARS',
             },
           ],
-          external_reference: business.id,
+          external_reference: externalReference,
           notification_url: `${WEBHOOK_URL}?provider=mercadopago`,
           back_urls: {
             success: `${SITE_URL}/subscription?payment=success`,
@@ -156,8 +164,11 @@ Deno.serve(async (req) => {
           purchase_units: [
             {
               amount: { currency_code: 'USD', value: PRICE_USD },
-              description: 'ReTurnos - Monthly subscription',
-              custom_id: business.id,
+              description:
+                payMode === 'sports'
+                  ? 'ReTurnos - Monthly subscription (Sports complex)'
+                  : 'ReTurnos - Monthly subscription (Bookings)',
+              custom_id: externalReference,
             },
           ],
           application_context: {

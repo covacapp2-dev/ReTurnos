@@ -132,14 +132,33 @@ Deno.serve(async (req) => {
         }, 404);
       }
 
+      const nowIso = new Date().toISOString();
+
+      // Los DOS sistemas quedan gratis para siempre
+      const { error: modeError } = await admin
+        .from('mode_subscriptions')
+        .update({
+          status: 'active',
+          trial_ends_at: null,
+          subscription_started_at: nowIso,
+          subscription_ends_at: null,
+          updated_at: nowIso,
+        })
+        .eq('business_id', biz.id);
+
+      if (modeError && modeError.code !== 'PGRST205') {
+        // PGRST205 = tabla inexistente (migración todavía no corrida)
+        return json({ error: modeError.message }, 500);
+      }
+
       const { error } = await admin
         .from('businesses')
         .update({
           subscription_status: 'active',
-          subscription_started_at: new Date().toISOString(),
+          subscription_started_at: nowIso,
           subscription_ends_at: null,
           trial_ends_at: null,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         })
         .eq('id', biz.id);
 

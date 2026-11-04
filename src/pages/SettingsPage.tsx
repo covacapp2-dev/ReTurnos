@@ -18,12 +18,14 @@ import {
   Goal,
   User,
   HelpCircle,
+  Lock,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../stores/authStore';
 import { updateBusiness } from '../services/business';
 import { setBookingMode } from '../services/auth';
+import { getModeSub, modeState } from '../services/modeSubscriptions';
 import AccountPage from './AccountPage';
 import SupportPage from './SupportPage';
 import SubscriptionPage from './SubscriptionPage';
@@ -88,7 +90,7 @@ const DURATION_OPTIONS = [
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { business, setBusiness, user } = useAuth();
+  const { business, setBusiness, user, modeSubs } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [copied, setCopied] = useState(false);
@@ -471,27 +473,59 @@ export default function SettingsPage() {
           {options.map((opt) => {
             const selected = bookingMode === opt.value;
             const Icon = opt.icon;
+
+            // Estado de la suscripción de ESTE sistema
+            const sub = getModeSub(modeSubs, opt.value);
+            const state = modeState(sub);
+            const blocked =
+              state.kind !== 'active' && state.kind !== 'trial';
+
             return (
               <button
                 key={opt.value}
                 onClick={() => {
                   if (selected || setModeMutation.isPending) return;
+                  // Sistema bloqueado → hay que pagar su suscripción
+                  if (blocked) {
+                    navigate(`/subscription?mode=${opt.value}`);
+                    return;
+                  }
                   setModeMutation.mutate(opt.value);
                 }}
                 className={`text-left rounded-xl border p-4 transition-all ${
                   selected
                     ? 'border-[#DC2626] bg-[#DC2626]/10 ring-1 ring-[#DC2626]/40'
-                    : 'border-[#333] bg-[#111] hover:border-[#555]'
+                    : blocked
+                      ? 'border-[#333] bg-[#111] hover:border-[#DC2626]/60'
+                      : 'border-[#333] bg-[#111] hover:border-[#555]'
                 }`}
               >
-                <Icon
-                  size={22}
-                  className={selected ? 'text-[#DC2626] mb-2' : 'text-[#9CA3AF] mb-2'}
-                />
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon
+                    size={22}
+                    className={selected ? 'text-[#DC2626]' : 'text-[#9CA3AF]'}
+                  />
+                  {blocked && <Lock size={13} className="text-[#DC2626]" />}
+                </div>
                 <p className="text-sm font-semibold text-white">{opt.label}</p>
                 <p className="text-xs text-[#9CA3AF] mt-1 leading-snug">{opt.description}</p>
                 {selected && (
                   <p className="text-[11px] text-[#DC2626] font-medium mt-2">Activo actualmente</p>
+                )}
+                {!selected && (
+                  <p
+                    className={`text-[11px] font-medium mt-2 ${
+                      blocked
+                        ? 'text-[#DC2626]'
+                        : state.kind === 'trial'
+                          ? 'text-amber-400'
+                          : 'text-emerald-400'
+                    }`}
+                  >
+                    {blocked
+                      ? 'Bloqueado · Desbloquear y pagar'
+                      : state.label}
+                  </p>
                 )}
               </button>
             );
@@ -499,7 +533,9 @@ export default function SettingsPage() {
         </div>
 
         <p className="text-xs text-[#9CA3AF]">
-          No se pierde nada: las reservas, clientes y productos se mantienen en ambos modos.
+          Cada sistema tiene su propia suscripción. Si cambiás a uno bloqueado, te
+          llevamos a pagarlo. No se pierde nada: las reservas, clientes y productos
+          se mantienen en ambos modos.
         </p>
       </div>
     );

@@ -22,7 +22,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function activateSubscription(businessId: string, provider: 'mercadopago' | 'paypal') {
+async function activateSubscription(
+  businessId: string,
+  mode: string,
+  provider: 'mercadopago' | 'paypal'
+) {
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -32,6 +36,37 @@ async function activateSubscription(businessId: string, provider: 'mercadopago' 
   const ends = new Date(now);
   ends.setMonth(ends.getMonth() + 1);
 
+  // 1) Suscripción de ESE sistema
+  const { data: row } = await supabaseAdmin
+    .from('mode_subscriptions')
+    .update({
+      status: 'active',
+      subscription_started_at: now.toISOString(),
+      subscription_ends_at: ends.toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq('business_id', businessId)
+    .eq('mode', mode)
+    .select('is_primary')
+    .maybeSingle();
+
+  if (row) {
+    if (row.is_primary) {
+      await supabaseAdmin
+        .from('businesses')
+        .update({
+          subscription_status: 'active',
+          payment_provider: provider,
+          subscription_started_at: now.toISOString(),
+          subscription_ends_at: ends.toISOString(),
+          updated_at: now.toISOString(),
+        })
+        .eq('id', businessId);
+    }
+    return true;
+  }
+
+  // 2) Respaldo sin la tabla mode_subscriptions
   const { data } = await supabaseAdmin
     .from('businesses')
     .update({
@@ -85,8 +120,10 @@ Deno.serve(async (req) => {
         return json({ ok: false, msg: 'importe inválido' });
       }
 
-      const businessId = payment.external_reference;
-      if (!businessId) return json({ ok: false, msg: 'sin referencia' });
+      const ref = payment.external_reference;
+      if (!ref) return json({ ok: false, msg: 'sin referencia' });
+
+      const [businessId, mode = 'general'] = String(ref).split('|');
 
       // Que solo el dueño pueda activar su negocio
       const { data: business } = await supabaseAdmin
@@ -96,7 +133,7 @@ Deno.serve(async (req) => {
         .single();
       if (!business || business.owner_id !== user.id) return json({ error: 'No autorizado' }, 403);
 
-      const activated = await activateSubscription(businessId, 'mercadopago');
+      const activated = await activateSubscription(businessId, mode, 'mercadopago');
       return json({ ok: activated });
     }
 
@@ -149,8 +186,10 @@ Deno.serve(async (req) => {
         return json({ ok: false, msg: 'importe inválido' });
       }
 
-      const businessId = unit?.custom_id;
-      if (!businessId) return json({ ok: false, msg: 'sin referencia' });
+      const ref = unit?.custom_id;
+      if (!ref) return json({ ok: false, msg: 'sin referencia' });
+
+      const [businessId, mode = 'general'] = String(ref).split('|');
 
       const { data: business } = await supabaseAdmin
         .from('businesses')
@@ -159,7 +198,7 @@ Deno.serve(async (req) => {
         .single();
       if (!business || business.owner_id !== user.id) return json({ error: 'No autorizado' }, 403);
 
-      const activated = await activateSubscription(businessId, 'paypal');
+      const activated = await activateSubscription(businessId, mode, 'paypal');
       return json({ ok: activated });
     }
 

@@ -1,30 +1,81 @@
 import { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   CreditCard,
-  Clock,
   Lock,
   ArrowLeft,
+  Check,
+  CalendarDays,
+  Goal,
+  Repeat,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
-import { createCheckoutUrl, confirmPayment, hasActiveAccess, detectIsArgentina, getStoredZone, storeZone } from '../services/subscription';
+import {
+  createCheckoutUrl,
+  confirmPayment,
+  detectIsArgentina,
+  getStoredZone,
+  storeZone,
+} from '../services/subscription';
 import type { PaymentZone } from '../services/subscription';
+import {
+  getModeSub,
+  modeState,
+  currentBookingMode,
+} from '../services/modeSubscriptions';
+import { setBookingMode } from '../services/auth';
+import type { BookingMode, ModeSubscription } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 
+const MODES: {
+  value: BookingMode;
+  label: string;
+  short: string;
+  description: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}[] = [
+  {
+    value: 'general',
+    label: 'Servicio de turnos en general',
+    short: 'Turnos en general',
+    description: 'Dashboard con servicios, profesionales y clientes de cualquier rubro.',
+    icon: CalendarDays,
+  },
+  {
+    value: 'sports',
+    label: 'Servicio de turnos complejo deportivo',
+    short: 'Complejo deportivo',
+    description: 'Lobby con deportes y canchas de fútbol, pádel, tenis, etc.',
+    icon: Goal,
+  },
+];
+
+function fmt(iso: string | null): string {
+  if (!iso) return '';
+  try {
+    return format(new Date(iso), 'dd/MM/yyyy', { locale: es });
+  } catch {
+    return iso;
+  }
+}
+
 export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
-  const { business } = useAuth();
+  const { business, user, modeSubs } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [zoneOverride, setZoneOverride] = useState<PaymentZone | null>(() => getStoredZone());
 
   const detectedAr = useMemo(() => detectIsArgentina(business), [business]);
   const isArgentina = zoneOverride ? zoneOverride === 'ar' : detectedAr;
+
+  const currentMode = currentBookingMode(user);
+  const requestedMode = searchParams.get('mode');
 
   const chooseZone = (zone: PaymentZone) => {
     setZoneOverride(zone);
@@ -51,9 +102,16 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         }
         // Volvemos sin los parámetros para no repetir la confirmación
         const clean = new URL(window.location.href);
-        ['payment', 'payment_id', 'collection_id', 'collection_status', 'token', 'PayerID', 'status'].forEach(
-          (k) => clean.searchParams.delete(k)
-        );
+        [
+          'payment',
+          'payment_id',
+          'collection_id',
+          'collection_status',
+          'token',
+          'PayerID',
+          'status',
+          'mode',
+        ].forEach((k) => clean.searchParams.delete(k));
         window.location.replace(clean.toString());
       })();
 
@@ -68,9 +126,10 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams, isArgentina]);
 
+  // Un pago por sistema: cada botón paga la suscripción de su sistema
   const checkoutMut = useMutation({
-    mutationFn: () =>
-      createCheckoutUrl(isArgentina ? 'mercadopago' : 'paypal', business!.id),
+    mutationFn: (mode: BookingMode) =>
+      createCheckoutUrl(isArgentina ? 'mercadopago' : 'paypal', business!.id, mode),
     onSuccess: ({ url, error }) => {
       if (error) {
         toast.error(error);
@@ -81,21 +140,27 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
     onError: () => toast.error('No se pudo iniciar el pago. Probá más tarde.'),
   });
 
-  const trialDaysLeft = useMemo(() => {
-    if (!business?.trial_ends_at) return 0;
-    const days = differenceInDays(new Date(business.trial_ends_at), new Date());
-    return Math.max(0, days);
-  }, [business?.trial_ends_at]);
+  const switchMut = useMutation({
+    mutationFn: (mode: BookingMode) => setBookingMode(mode),
+    onSuccess: () => {
+      toast.success('Sistema cambiado');
+      window.location.href = '/dashboard';
+    },
+    onError: () => toast.error('No se pudo cambiar de sistema'),
+  });
 
-  const trialProgress = useMemo(() => {
-    if (!business?.trial_started_at || !business?.trial_ends_at) return 0;
-    const start = new Date(business.trial_started_at).getTime();
-    const end = new Date(business.trial_ends_at).getTime();
-    const now = Date.now();
-    const total = end - start;
-    const elapsed = now - start;
-    return Math.min(100, Math.max(0, (elapsed / total) * 100));
-  }, [business?.trial_started_at, business?.trial_ends_at]);
+  const currentSub = getModeSub(modeSubs, currentMode);
+  const currentBlocked = currentSub
+    ? !['active', 'trial'].includes(currentSub.status) ||
+      (currentSub.status === 'trial' &&
+        !!currentSub.trial_ends_at &&
+        new Date(currentSub.trial_ends_at).getTime() <= Date.now()) ||
+      (currentSub.status === 'active' &&
+        !!currentSub.subscription_ends_at &&
+        new Date(currentSub.subscription_ends_at).getTime() <= Date.now())
+    : false;
+
+  const payLabel = isArgentina ? 'Pagar con Mercado Pago' : 'Pagar con PayPal';
 
   return (
     <div
@@ -113,23 +178,26 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         </button>
       )}
 
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Suscripción</h1>
+      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Suscripción</h1>
+      <p className="text-sm text-[#9CA3AF] mb-6">
+        Cada sistema se paga por separado. Si usás los dos, pagás dos suscripciones.
+      </p>
 
-      {/* Aviso de bloqueo */}
-      {!hasActiveAccess(business) && (
+      {/* Aviso de bloqueo del sistema en uso */}
+      {currentBlocked && (
         <div className="mb-6 flex items-start gap-3 bg-[#DC2626]/10 border border-[#DC2626]/40 rounded-lg p-4">
           <Lock size={18} className="text-[#DC2626] mt-0.5 shrink-0" />
           <p className="text-sm text-white">
-            <span className="font-semibold">El acceso está pausado.</span>{' '}
+            <span className="font-semibold">El sistema que estás usando está pausado.</span>{' '}
             <span className="text-[#9CA3AF]">
-              Hacé el pago y la suscripción se activa al instante.
+              Hacé el pago y se reactiva al instante.
             </span>
           </p>
         </div>
       )}
 
       {/* Zona de cobro */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <span className="text-xs text-[#9CA3AF] mr-1">Cobro en:</span>
         <button
           onClick={() => chooseZone('ar')}
@@ -153,88 +221,118 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         </button>
       </div>
 
-      {/* Subscription Plan Card */}
-      <Card className="mb-6 border-[#DC2626]/30">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white">Suscripción mensual</h2>
-          <p className="text-sm text-[#9CA3AF] mt-1">
-            Acceso ilimitado a todas las funcionalidades
-          </p>
-        </div>
+      {/* Una tarjeta por sistema */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {MODES.map((m) => {
+          const sub = getModeSub(modeSubs, m.value) as ModeSubscription | null;
+          const state = modeState(sub);
+          const usable = state.kind === 'active' || state.kind === 'trial';
+          const isCurrent = currentMode === m.value;
+          const highlighted = requestedMode === m.value;
+          const Icon = m.icon;
 
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-3xl font-bold text-[#DC2626]">
-            {isArgentina ? '$15.000' : 'US$10'}
-          </span>
-          <span className="text-sm text-[#9CA3AF]">
-            {isArgentina ? 'ARS / mes' : '/ mes'}
-          </span>
-        </div>
+          return (
+            <Card
+              key={m.value}
+              className={`${highlighted ? 'border-[#DC2626] ring-1 ring-[#DC2626]/40' : 'border-[#333]'}`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Icon size={20} className={isCurrent ? 'text-[#DC2626]' : 'text-[#9CA3AF]'} />
+                  <h2 className="text-sm font-semibold text-white truncate">{m.short}</h2>
+                </div>
+                {isCurrent && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/40 shrink-0">
+                    En uso
+                  </span>
+                )}
+              </div>
 
-        <div className="bg-[#080808] border border-[#333] rounded-lg p-3 mb-4">
-          <p className="text-sm text-emerald-400 font-medium">
-            🎁 3 meses gratis al suscribirte
-          </p>
-        </div>
+              <p className="text-xs text-[#9CA3AF] leading-snug mb-4">{m.description}</p>
 
-        <Button
-          size="lg"
-          className="w-full sm:w-auto"
-          disabled={!business}
-          loading={checkoutMut.isPending}
-          onClick={() => checkoutMut.mutate()}
-          icon={<CreditCard size={18} />}
-        >
-          {isArgentina ? 'Pagar con Mercado Pago' : 'Pagar con PayPal'}
-        </Button>
-        <p className="text-xs text-[#9CA3AF] mt-3">
-          {isArgentina
-            ? 'Se abre Mercado Pago en una pestaña nueva para pagar $15.000 ARS.'
-            : 'Se abre PayPal en una pestaña nueva para pagar US$ 10.'}
-        </p>
-      </Card>
+              {/* Estado */}
+              <div className="bg-[#080808] border border-[#333] rounded-lg px-3 py-2.5 mb-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-sm font-medium ${
+                      state.kind === 'active'
+                        ? 'text-emerald-400'
+                        : state.kind === 'trial'
+                          ? 'text-amber-400'
+                          : 'text-[#DC2626]'
+                    }`}
+                  >
+                    {state.kind === 'active' && <Check size={14} className="inline mr-1 -mt-0.5" />}
+                    {state.label}
+                  </span>
+                  {state.endsAt && (
+                    <span className="text-[11px] text-[#9CA3AF]">hasta {fmt(state.endsAt)}</span>
+                  )}
+                </div>
+                {state.kind === 'trial' && sub?.is_primary && state.endsAt && (
+                  <p className="text-[11px] text-[#9CA3AF] mt-1">
+                    Te quedan {Math.max(0, Math.ceil((new Date(state.endsAt).getTime() - Date.now()) / 86400000))}{" "}
+                    días
+                  </p>
+                )}
+              </div>
 
-      {/* Trial Info */}
-      {business?.subscription_status === 'trial' && (
-        <Card className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center">
-              <Clock size={20} className="text-amber-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">Período de prueba</h3>
-              <p className="text-xs text-[#9CA3AF]">
-                Te quedan {trialDaysLeft} días de prueba
-              </p>
-            </div>
-          </div>
+              {/* Precio */}
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-2xl font-bold text-[#DC2626]">
+                  {isArgentina ? '$15.000' : 'US$10'}
+                </span>
+                <span className="text-xs text-[#9CA3AF]">
+                  {isArgentina ? 'ARS / mes' : '/ mes'}
+                </span>
+              </div>
 
-          <div className="mb-3">
-            <div className="flex items-center justify-between text-xs text-[#9CA3AF] mb-1">
-              <span>Inicio</span>
-              <span>Fin</span>
-            </div>
-            <div className="h-2 bg-[#333] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#DC2626] to-amber-500 rounded-full transition-all duration-500"
-                style={{ width: `${trialProgress}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-[#9CA3AF] mt-1">
-              <span>
-                {business?.trial_started_at
-                  ? format(new Date(business.trial_started_at), 'dd MMM yyyy', { locale: es })
-                  : '-'}
-              </span>
-              <span>
-                {business?.trial_ends_at
-                  ? format(new Date(business.trial_ends_at), 'dd MMM yyyy', { locale: es })
-                  : '-'}
-              </span>
-            </div>
-          </div>
-        </Card>
-      )}
+              {/* Acciones */}
+              {state.kind === 'active' ? (
+                <Button variant="secondary" className="w-full" disabled icon={<Check size={16} />}>
+                  Suscripción activa
+                </Button>
+              ) : state.kind === 'trial' ? (
+                <div className="text-center text-xs text-[#9CA3AF] py-2">
+                  {sub?.is_primary
+                    ? 'Disfrutá tus 3 meses gratis. Después se paga mes a mes.'
+                    : 'Período gratis en curso. Cuando termine, se paga mes a mes.'}
+                </div>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    disabled={!business}
+                    loading={checkoutMut.isPending && checkoutMut.variables === m.value}
+                    onClick={() => checkoutMut.mutate(m.value)}
+                    icon={<CreditCard size={18} />}
+                  >
+                    {payLabel}
+                  </Button>
+                  <p className="text-[11px] text-[#9CA3AF] mt-2 text-center">
+                    {isArgentina
+                      ? 'Se abre Mercado Pago para pagar $15.000 ARS.'
+                      : 'Se abre PayPal para pagar US$ 10.'}
+                  </p>
+                </>
+              )}
+
+              {/* Usar el otro sistema */}
+              {!isCurrent && usable && (
+                <button
+                  onClick={() => switchMut.mutate(m.value)}
+                  disabled={switchMut.isPending}
+                  className="w-full mt-3 inline-flex items-center justify-center gap-2 text-xs text-[#9CA3AF] hover:text-white transition-colors"
+                >
+                  <Repeat size={13} />
+                  Usar este sistema
+                </button>
+              )}
+            </Card>
+          );
+        })}
+      </div>
 
       {/* Cómo funciona el cobro */}
       <Card>
@@ -243,22 +341,26 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
           <li className="flex gap-2">
             <span className="text-[#DC2626]">•</span>
             <span>
-              Los primeros <span className="text-white font-medium">3 meses son gratis</span>.
+              El sistema elegido al registrarse tiene{' '}
+              <span className="text-white font-medium">3 meses gratis</span>.
             </span>
           </li>
           <li className="flex gap-2">
             <span className="text-[#DC2626]">•</span>
             <span>
-              Después se paga mes a mes: {isArgentina ? '$15.000 ARS' : 'US$10'}.
+              El otro sistema queda <span className="text-white font-medium">gratis hasta fin del mes</span>{' '}
+              y después se bloquea hasta pagarlo.
             </span>
           </li>
           <li className="flex gap-2">
             <span className="text-[#DC2626]">•</span>
-            <span>Al pagar, la suscripción se activa al instante y dura 30 días.</span>
+            <span>
+              Después se paga mes a mes: {isArgentina ? '$15.000 ARS' : 'US$10'} por sistema.
+            </span>
           </li>
           <li className="flex gap-2">
             <span className="text-[#DC2626]">•</span>
-            <span>Si vence, el acceso queda pausado hasta regularizar el pago.</span>
+            <span>Al pagar, ese sistema se activa al instante y dura 30 días.</span>
           </li>
         </ul>
       </Card>

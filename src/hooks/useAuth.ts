@@ -8,7 +8,7 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
 
-  const { user, profile, business, loading, setBusiness } = useAuthStore();
+  const { user, profile, business, modeSubs, loading, setBusiness } = useAuthStore();
 
-  return { user, profile, business, loading, setBusiness };
+  return { user, profile, business, modeSubs, loading, setBusiness };
 }

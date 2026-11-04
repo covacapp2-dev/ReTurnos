@@ -33,6 +33,33 @@ export type PaymentProvider =
   | 'cash'
   | 'other';
 
+// Sistema de turnos elegido: general (cualquier rubro) o complejo deportivo
+export type BookingMode = 'general' | 'sports';
+
+// 'locked' = sistema que todavía no se puede usar (hay que pagarlo)
+export type ModeSubscriptionStatus =
+  | 'locked'
+  | 'trial'
+  | 'active'
+  | 'past_due'
+  | 'cancelled'
+  | 'expired';
+
+// Suscripción independiente de cada sistema (general / sports)
+export interface ModeSubscription {
+  id: string;
+  business_id: string;
+  mode: BookingMode;
+  is_primary: boolean;
+  status: ModeSubscriptionStatus;
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  subscription_started_at: string | null;
+  subscription_ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ResourceType =
   | 'room'
   | 'equipment'

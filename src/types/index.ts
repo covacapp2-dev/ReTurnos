@@ -6,12 +6,15 @@ export type {
   ResourceType,
   NotificationType,
   NotificationChannel,
+  BookingMode,
+  ModeSubscriptionStatus,
 } from './database';
 
 export type {
   Profile,
   Business,
   BusinessMember,
+  ModeSubscription,
   Branch,
   Service,
   Resource,

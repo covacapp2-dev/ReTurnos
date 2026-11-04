@@ -29,6 +29,7 @@ function json(body: unknown, status = 200): Response {
 
 async function activateSubscription(
   businessId: string,
+  mode: string,
   provider: 'mercadopago' | 'paypal'
 ): Promise<boolean> {
   const supabaseAdmin = createClient(
@@ -40,6 +41,38 @@ async function activateSubscription(
   const ends = new Date(now);
   ends.setMonth(ends.getMonth() + 1);
 
+  // 1) Se activa la suscripción de ESE sistema
+  const { data: row } = await supabaseAdmin
+    .from('mode_subscriptions')
+    .update({
+      status: 'active',
+      subscription_started_at: now.toISOString(),
+      subscription_ends_at: ends.toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq('business_id', businessId)
+    .eq('mode', mode)
+    .select('is_primary')
+    .maybeSingle();
+
+  if (row) {
+    // 2) Si es el sistema principal, se refleja también en businesses
+    if (row.is_primary) {
+      await supabaseAdmin
+        .from('businesses')
+        .update({
+          subscription_status: 'active',
+          payment_provider: provider,
+          subscription_started_at: now.toISOString(),
+          subscription_ends_at: ends.toISOString(),
+          updated_at: now.toISOString(),
+        })
+        .eq('id', businessId);
+    }
+    return true;
+  }
+
+  // 3) Respaldo: la tabla mode_subscriptions todavía no existe
   const { data, error } = await supabaseAdmin
     .from('businesses')
     .update({
@@ -112,14 +145,17 @@ async function handleMercadoPago(req: Request, url: URL): Promise<Response> {
 
   if (!resp.ok) return json({ ok: false, msg: payment.message ?? 'error' }, 500);
 
-  const businessId = payment.external_reference;
-  if (!businessId) return json({ ok: true, msg: 'sin referencia' });
+  const ref = payment.external_reference;
+  if (!ref) return json({ ok: true, msg: 'sin referencia' });
+
+  // "id-del-negocio|sistema"
+  const [businessId, mode = 'general'] = String(ref).split('|');
 
   if (payment.status === 'approved') {
     // Que no se active con un pago de menos de $15.000 ARS
     const amount = Number(payment.transaction_amount ?? 0);
     if (payment.currency_id === 'ARS' && amount >= 15000) {
-      await activateSubscription(businessId, 'mercadopago');
+      await activateSubscription(businessId, mode, 'mercadopago');
     } else {
       return json({ ok: true, msg: `importe inválido: ${amount}` });
     }
@@ -135,14 +171,15 @@ async function handlePayPal(req: Request): Promise<Response> {
     return json({ ok: true, msg: 'evento ignorado' });
   }
 
-  const businessId =
+  const ref =
     body?.resource?.custom_id ??
     body?.resource?.purchase_units?.[0]?.custom_id ??
     body?.resource?.supplementary_data?.related_ids?.order_id;
 
-  if (!businessId) return json({ ok: true, msg: 'sin referencia' });
+  if (!ref) return json({ ok: true, msg: 'sin referencia' });
 
-  await activateSubscription(businessId, 'paypal');
+  const [businessId, mode = 'general'] = String(ref).split('|');
+  await activateSubscription(businessId, mode, 'paypal');
   return json({ ok: true });
 }
 

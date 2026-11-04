@@ -2,6 +2,7 @@ import { createContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
+import { fetchModeSubscriptions } from '../services/modeSubscriptions';
 
 export const AuthContext = createContext<null>(null);
 
@@ -10,7 +11,8 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setProfile, setBusiness, setLoading, logout } = useAuthStore();
+  const { setUser, setProfile, setBusiness, setModeSubs, setLoading, logout } = useAuthStore();
+  const businessId = useAuthStore((s) => s.business?.id);
 
   useEffect(() => {
     async function getInitialSession() {
@@ -86,6 +88,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       subscription.unsubscribe();
     };
   }, [setUser, setProfile, setBusiness, setLoading, logout]);
+
+  // Suscripción de cada sistema (general / sports) por separado
+  useEffect(() => {
+    if (!businessId) {
+      setModeSubs([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchModeSubscriptions(businessId).then((subs) => {
+      if (!cancelled) setModeSubs(subs);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, setModeSubs]);
 
   return (
     <AuthContext.Provider value={null}>

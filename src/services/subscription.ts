@@ -1,14 +1,34 @@
 import { supabase } from '@/lib/supabase';
-import type { Business } from '../types/database';
+import type { Business, BookingMode, ModeSubscription } from '../types/database';
 
 export type PaymentProviderChoice = 'mercadopago' | 'paypal';
 
-// ¿Puede usar la app? Suscripción activa o prueba vigente.
-// Si no, se bloquea el acceso y se lo manda a pagar.
-export function hasActiveAccess(business: Business | null | undefined): boolean {
+// ¿Puede usar la app? Cada sistema (general / sports) tiene su propia
+// suscripción. Si todavía no hay filas por modo (migración no corrida),
+// se usa la suscripción única de siempre.
+export function hasActiveAccess(
+  business: Business | null | undefined,
+  mode?: BookingMode | null,
+  sub?: ModeSubscription | null
+): boolean {
   if (!business) return false;
   const now = Date.now();
 
+  // --- Fuente de verdad: la suscripción de ese sistema ---
+  if (sub) {
+    if (sub.status === 'active') {
+      if (!sub.subscription_ends_at) return true;
+      return new Date(sub.subscription_ends_at).getTime() > now;
+    }
+    if (sub.status === 'trial') {
+      if (!sub.trial_ends_at) return true;
+      return new Date(sub.trial_ends_at).getTime() > now;
+    }
+    // locked / past_due / cancelled / expired
+    return false;
+  }
+
+  // --- Respaldo: una sola suscripción para todo ---
   if (business.subscription_status === 'active') {
     if (!business.subscription_ends_at) return true;
     return new Date(business.subscription_ends_at).getTime() > now;
@@ -19,7 +39,7 @@ export function hasActiveAccess(business: Business | null | undefined): boolean 
     return new Date(business.trial_ends_at).getTime() > now;
   }
 
-  // past_due / cancelled / expired
+  void mode;
   return false;
 }
 
@@ -60,14 +80,16 @@ export function storeZone(zone: PaymentZone): void {
   }
 }
 
-// Crea el link de pago mensual en la Edge Function y devuelve la URL
+// Crea el link de pago mensual en la Edge Function y devuelve la URL.
+// "mode" es el sistema que se está pagando (general / sports).
 export async function createCheckoutUrl(
   provider: PaymentProviderChoice,
-  businessId: string
+  businessId: string,
+  mode: 'general' | 'sports' = 'general'
 ): Promise<{ url: string | null; error: string | null }> {
   try {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { provider, business_id: businessId },
+      body: { provider, business_id: businessId, mode },
     });
 
     if (error) {
