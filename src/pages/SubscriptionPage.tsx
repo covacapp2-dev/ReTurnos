@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Goal,
   Repeat,
+  Unlock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
@@ -26,8 +27,10 @@ import {
   getModeSub,
   modeState,
   currentBookingMode,
+  enableMode,
 } from '../services/modeSubscriptions';
 import { setBookingMode } from '../services/auth';
+import { useAuthStore } from '../stores/authStore';
 import type { BookingMode, ModeSubscription } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -147,6 +150,23 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
       window.location.href = '/dashboard';
     },
     onError: () => toast.error('No se pudo cambiar de sistema'),
+  });
+
+  // Habilitar el sistema que nació bloqueado:
+  // gratis hasta fin de mes, recién desde ahora
+  const enableMut = useMutation({
+    mutationFn: (mode: BookingMode) => enableMode(business!.id, mode),
+    onSuccess: ({ error, subs }) => {
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      useAuthStore.getState().setModeSubs(subs);
+      toast.success('Sistema habilitado. Gratis hasta fin de mes.', {
+        duration: 4000,
+      });
+    },
+    onError: () => toast.error('No se pudo habilitar el sistema'),
   });
 
   const currentSub = getModeSub(modeSubs, currentMode);
@@ -298,6 +318,32 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
                     ? 'Disfrutá tus 3 meses gratis. Después se paga mes a mes.'
                     : 'Período gratis en curso. Cuando termine, se paga mes a mes.'}
                 </div>
+              ) : sub?.status === 'locked' ? (
+                <>
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    disabled={!business}
+                    loading={enableMut.isPending && enableMut.variables === m.value}
+                    onClick={() => enableMut.mutate(m.value)}
+                    icon={<Unlock size={18} />}
+                  >
+                    Habilitar gratis hasta fin de mes
+                  </Button>
+                  <p className="text-[11px] text-[#9CA3AF] mt-2 text-center">
+                    El período gratis arranca recién cuando lo habilitás.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="w-full mt-3"
+                    disabled={!business}
+                    loading={checkoutMut.isPending && checkoutMut.variables === m.value}
+                    onClick={() => checkoutMut.mutate(m.value)}
+                    icon={<CreditCard size={16} />}
+                  >
+                    Pagar suscripción ahora
+                  </Button>
+                </>
               ) : (
                 <>
                   <Button
@@ -348,8 +394,9 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
           <li className="flex gap-2">
             <span className="text-[#DC2626]">•</span>
             <span>
-              El otro sistema queda <span className="text-white font-medium">gratis hasta fin del mes</span>{' '}
-              y después se bloquea hasta pagarlo.
+              El otro sistema nace{' '}
+              <span className="text-white font-medium">bloqueado</span>: el período
+              gratis arranca recién cuando lo habilitás y llega hasta fin de mes.
             </span>
           </li>
           <li className="flex gap-2">

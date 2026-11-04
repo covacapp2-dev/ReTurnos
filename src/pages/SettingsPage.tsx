@@ -523,7 +523,7 @@ export default function SettingsPage() {
                     }`}
                   >
                     {blocked
-                      ? 'Bloqueado · Desbloquear y pagar'
+                      ? 'Bloqueado · Habilitar o pagar'
                       : state.label}
                   </p>
                 )}

@@ -81,3 +81,16 @@ export function isModeUsable(sub: ModeSubscription | null | undefined): boolean 
   const state = modeState(sub);
   return state.kind === 'active' || state.kind === 'trial';
 }
+
+// Habilitar el sistema que quedó bloqueado al registrarse:
+// gratis hasta fin del mes en curso (solo se puede una vez).
+export async function enableMode(
+  businessId: string,
+  mode: BookingMode
+): Promise<{ error: string | null; subs: ModeSubscription[] }> {
+  const { error } = await supabase.rpc('enable_mode', { p_mode: mode });
+  if (error) return { error: error.message, subs: [] };
+
+  const subs = await fetchModeSubscriptions(businessId);
+  return { error: null, subs };
+}
